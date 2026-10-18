@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carry It With You — A Cozy University Life Game</title>
+  <meta name="description" content="Pack your bag each morning, carry the right things, and build bonds with the people around you. A cozy pixel-art university life game." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Phaser 3 -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0518;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Nunito', sans-serif;
+      overflow: hidden;
+    }
+
+    #game-wrapper {
+      position: relative;
+      width: 800px;
+      height: 560px;
+      box-shadow: 0 0 60px rgba(107, 63, 160, 0.5), 0 0 120px rgba(107, 63, 160, 0.2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    /* Loading overlay */
+    #loading {
+      position: absolute;
+      inset: 0;
+      background: #0d0820;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      transition: opacity 0.8s ease;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+
+    .loader-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 14px;
+      color: #f9e4b7;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .loader-bar-wrap {
+      width: 220px;
+      height: 10px;
+      background: #2d1b4e;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .loader-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6b3fa0, #9b5fd0);
+      border-radius: 5px;
+      animation: loadAnim 1.2s ease-out forwards;
+    }
+    @keyframes loadAnim {
+      0%   { width: 0%; }
+      60%  { width: 85%; }
+      100% { width: 100%; }
+    }
+    .loader-sub {
+      font-family: 'Nunito', sans-serif;
+      font-size: 12px;
+      color: #7a6e9a;
+      margin-top: 14px;
+    }
+
+    /* CRT scanlines overlay */
+    #game-wrapper::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.04) 2px,
+        rgba(0, 0, 0, 0.04) 4px
+      );
+      pointer-events: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-wrapper">
+    <div id="loading">
+      <div class="loader-title">CARRY IT<br/>WITH YOU</div>
+      <div class="loader-bar-wrap"><div class="loader-bar"></div></div>
+      <div class="loader-sub">packing up...</div>
+    </div>
+    <div id="game-container"></div>
+  </div>
+
+  <script type="module">
+    import { TitleScene }     from './src/TitleScene.js';
+    import { InventoryScene } from './src/InventoryScene.js';
+    import { EventScene }     from './src/EventScene.js';
+    import { EndScene }       from './src/EndScene.js';
+
+    const config = {
+      type: Phaser.AUTO,
+      width:  800,
+      height: 560,
+      backgroundColor: '#0d0820',
+      parent: 'game-container',
+      scene: [TitleScene, InventoryScene, EventScene, EndScene],
+      scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+      },
+      input: {
+        mouse: { preventDefaultWheel: true },
+      },
+    };
+
+    const game = new Phaser.Game(config);
+
+    // Hide loading screen once Phaser boots
+    game.events.once('ready', () => {
+      setTimeout(() => {
+        const loading = document.getElementById('loading');
+        if (loading) loading.classList.add('hidden');
+        setTimeout(() => loading?.remove(), 900);
+      }, 800);
+    });
+  </script>
+</body>
+</html>
