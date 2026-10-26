@@ -11,10 +11,24 @@ import { ITEM_DEFS } from './GameData.js';
  * @param {number} originY  row index (0-based)
  * @returns {Array<{col, row}>}
  */
-export function getOccupiedCells(itemKey, originX, originY) {
+export function getOccupiedCells(itemKey, originX, originY, rotation = 0) {
+  return getItemShape(itemKey, rotation).map(([dc, dr]) => ({ col: originX + dc, row: originY + dr }));
+}
+
+/** Return an item's normalized cell shape after clockwise quarter turns. */
+export function getItemShape(itemKey, rotation = 0) {
   const def = ITEM_DEFS[itemKey];
   if (!def) return [];
-  return def.shape.map(([dc, dr]) => ({ col: originX + dc, row: originY + dr }));
+  let shape = def.shape.map(([col, row]) => [col, row]);
+  const turns = ((rotation % 4) + 4) % 4;
+  for (let turn = 0; turn < turns; turn++) {
+    const maxCol = Math.max(...shape.map(([col]) => col));
+    shape = shape.map(([col, row]) => [row, maxCol - col]);
+    const minCol = Math.min(...shape.map(([col]) => col));
+    const minRow = Math.min(...shape.map(([, row]) => row));
+    shape = shape.map(([col, row]) => [col - minCol, row - minRow]);
+  }
+  return shape;
 }
 
 /**
@@ -28,8 +42,8 @@ export function getOccupiedCells(itemKey, originX, originY) {
  * @param {string|null} excludeInstanceId  ignore cells occupied by this id (for moving)
  * @returns {boolean}
  */
-export function canPlace(grid, cols, rows, itemKey, originX, originY, excludeInstanceId = null) {
-  const cells = getOccupiedCells(itemKey, originX, originY);
+export function canPlace(grid, cols, rows, itemKey, originX, originY, excludeInstanceId = null, rotation = 0) {
+  const cells = getOccupiedCells(itemKey, originX, originY, rotation);
   for (const { col, row } of cells) {
     if (col < 0 || col >= cols || row < 0 || row >= rows) return false;
     const existing = grid[row * cols + col];
@@ -47,8 +61,8 @@ export function canPlace(grid, cols, rows, itemKey, originX, originY, excludeIns
  * @param {number} originY
  * @param {string} instanceId
  */
-export function placeItem(grid, cols, itemKey, originX, originY, instanceId) {
-  const cells = getOccupiedCells(itemKey, originX, originY);
+export function placeItem(grid, cols, itemKey, originX, originY, instanceId, rotation = 0) {
+  const cells = getOccupiedCells(itemKey, originX, originY, rotation);
   for (const { col, row } of cells) {
     grid[row * cols + col] = instanceId;
   }

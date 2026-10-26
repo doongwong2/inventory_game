@@ -107,7 +107,8 @@ export const NPCS = {
 export const SHELF_DEFS = [
   { id: 'shelf_a', cols: 3, rows: 3, label: 'Small Shelf A' },
   { id: 'shelf_b', cols: 3, rows: 3, label: 'Small Shelf B' },
-  { id: 'shelf_c', cols: 8, rows: 10, label: 'Big Bookcase' },
+  { id: 'shelf_c', cols: 3, rows: 3, label: 'Small Shelf C' },
+  { id: 'big_shelf', cols: 8, rows: 10, label: 'Big Shelf' },
 ];
 
 // 7-day event schedule
