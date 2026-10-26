@@ -3,6 +3,7 @@
 // ============================================================
 
 import { GameState, NPCS, SHELF_DEFS, ITEM_DEFS } from './GameData.js';
+import { addText } from './uiText.js';
 
 const PAL = {
   bg:    0x0d0820,
@@ -34,7 +35,7 @@ export class EndScene extends Phaser.Scene {
     }
 
     // Title
-    this.add.text(W / 2, 38, 'WEEK COMPLETE', {
+    addText(this, W / 2, 38, 'WEEK COMPLETE', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '18px',
       color: PAL.gold,
@@ -42,7 +43,7 @@ export class EndScene extends Phaser.Scene {
       strokeThickness: 4,
     }).setOrigin(0.5);
 
-    this.add.text(W / 2, 68, 'Here\'s how your week shaped up:', {
+    addText(this, W / 2, 68, 'Here\'s how your week shaped up:', {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '14px',
       color: PAL.sub,
@@ -79,7 +80,7 @@ export class EndScene extends Phaser.Scene {
       .on('pointerout',  () => btn.setFillStyle(0x6b3fa0))
       .on('pointerdown', () => this._restart());
 
-    this.add.text(W / 2, H - 55, '↺  PLAY AGAIN', {
+    addText(this, W / 2, H - 55, '↺  PLAY AGAIN', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '10px',
       color: PAL.text,
@@ -117,13 +118,13 @@ export class EndScene extends Phaser.Scene {
     pg.strokePath();
 
     // Name
-    this.add.text(x + w / 2, y + 72, npc.name, {
+    addText(this, x + w / 2, y + 72, npc.name, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '7px',
       color: PAL.text,
     }).setOrigin(0.5);
 
-    this.add.text(x + w / 2, y + 86, npc.role, {
+    addText(this, x + w / 2, y + 86, npc.role, {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '11px',
       color: PAL.sub,
@@ -141,7 +142,7 @@ export class EndScene extends Phaser.Scene {
     abg.fillStyle(npc.color, 0.9);
     abg.fillRect(barX, barY, barW * pct, 10);
 
-    this.add.text(x + w / 2, barY + 16, `${npc.affinity} / 100`, {
+    addText(this, x + w / 2, barY + 16, `${npc.affinity} / 100`, {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '10px',
       color: PAL.dim,
@@ -150,12 +151,12 @@ export class EndScene extends Phaser.Scene {
     // Unlocked threshold
     const unlocked = [...npc.thresholds].reverse().find(t => npc.affinity >= t.at);
     if (unlocked) {
-      this.add.text(x + w / 2, barY + 34, `✓ Lv.${unlocked.level}`, {
+      addText(this, x + w / 2, barY + 34, `✓ Lv.${unlocked.level}`, {
         fontFamily: '"Press Start 2P", monospace',
         fontSize: '7px',
         color: '#80ff80',
       }).setOrigin(0.5);
-      this.add.text(x + w / 2, barY + 50, unlocked.unlock, {
+      addText(this, x + w / 2, barY + 50, unlocked.unlock, {
         fontFamily: '"Nunito", sans-serif',
         fontSize: '10px',
         color: '#c0ffc0',
@@ -163,7 +164,7 @@ export class EndScene extends Phaser.Scene {
         align: 'center',
       }).setOrigin(0.5);
     } else {
-      this.add.text(x + w / 2, barY + 34, 'No bond yet', {
+      addText(this, x + w / 2, barY + 34, 'No bond yet', {
         fontFamily: '"Nunito", sans-serif',
         fontSize: '10px',
         color: PAL.dim,
@@ -182,7 +183,7 @@ export class EndScene extends Phaser.Scene {
 
     let ty = 322;
     for (const line of lines) {
-      this.add.text(W / 2, ty, line, {
+      addText(this, W / 2, ty, line, {
         fontFamily: '"Nunito", sans-serif',
         fontSize: line === '' ? 6 : 14,
         color: line.startsWith('You') || line.startsWith('Next') ? PAL.text : PAL.sub,
@@ -195,7 +196,7 @@ export class EndScene extends Phaser.Scene {
     const totalItems = GameState.bagItems.length +
       Object.values(GameState.shelves).reduce((acc, s) => acc + s.items.length, 0);
 
-    this.add.text(W / 2, ty + 10,
+    addText(this, W / 2, ty + 10,
       `Items placed this session: ${totalItems}`, {
         fontFamily: '"Nunito", sans-serif',
         fontSize: '12px',

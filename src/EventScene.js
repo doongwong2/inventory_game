@@ -5,6 +5,7 @@
 import {
   GRID, DAYS, ITEM_DEFS, GameState, addAffinity, bagHasItem, newInstanceId
 } from './GameData.js';
+import { addText } from './uiText.js';
 
 const PAL = {
   bg:         0x0d0820,
@@ -70,7 +71,7 @@ export class EventScene extends Phaser.Scene {
     dbg.strokePath();
 
     // Speaker name tag
-    this._nameTag = this.add.text(16, dbY + 8, '', {
+    this._nameTag = addText(this, 16, dbY + 8, '', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '9px',
       color: '#f9e4b7',
@@ -79,7 +80,7 @@ export class EventScene extends Phaser.Scene {
     }).setDepth(10);
 
     // Main dialogue text
-    this._dialogueTxt = this.add.text(16, dbY + 36, '', {
+    this._dialogueTxt = addText(this, 16, dbY + 36, '', {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '15px',
       color: '#f9e4b7',
@@ -88,7 +89,7 @@ export class EventScene extends Phaser.Scene {
     }).setDepth(10);
 
     // Advance indicator
-    this._advanceTxt = this.add.text(W - 22, H - 16, '▶', {
+    this._advanceTxt = addText(this, W - 22, H - 16, '▶', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '8px',
       color: '#9b5fd0',
@@ -110,7 +111,7 @@ export class EventScene extends Phaser.Scene {
     // Affinity change popup container
     this._affinityPopup = this.add.container(W / 2, H * 0.62).setDepth(200).setVisible(false);
     const apBg = this.add.rectangle(0, 0, 260, 48, PAL.nameTag, 0.95);
-    this._affinityTxt = this.add.text(0, 0, '', {
+    this._affinityTxt = addText(this, 0, 0, '', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '8px',
       color: '#ffd080',
@@ -121,7 +122,7 @@ export class EventScene extends Phaser.Scene {
     // Received item popup
     this._receivedPopup = this.add.container(W / 2, H * 0.5).setDepth(200).setVisible(false);
     const rpBg = this.add.rectangle(0, 0, 280, 60, 0x1a3d1a, 0.97);
-    this._receivedTxt = this.add.text(0, 0, '', {
+    this._receivedTxt = addText(this, 0, 0, '', {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '14px',
       color: '#80ff80',
@@ -274,7 +275,7 @@ export class EventScene extends Phaser.Scene {
   // ─────────────────────────────────────────────────────────────
   _drawDayBadge(dayNum, W) {
     const bg = this.add.rectangle(W - 80, 20, 120, 34, PAL.nameTag, 0.9).setDepth(5);
-    this.add.text(W - 80, 20, `DAY ${dayNum} / 7`, {
+    addText(this, W - 80, 20, `DAY ${dayNum} / 7`, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '8px',
       color: '#f9e4b7',
@@ -316,12 +317,12 @@ export class EventScene extends Phaser.Scene {
     pg2.strokePath();
 
     // Name + role
-    this.add.text(px + pr * 2 + 10, py + pr - 12, npc.name, {
+    addText(this, px + pr * 2 + 10, py + pr - 12, npc.name, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '10px',
       color: '#f9e4b7',
     }).setDepth(5);
-    this.add.text(px + pr * 2 + 10, py + pr + 6, npc.role, {
+    addText(this, px + pr * 2 + 10, py + pr + 6, npc.role, {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '12px',
       color: '#c9b8e8',
@@ -340,7 +341,7 @@ export class EventScene extends Phaser.Scene {
     abg.fillStyle(npc.color, 0.9);
     abg.fillRect(barX, barY, barW * pct, barH);
 
-    this.add.text(barX, barY + 11, `Affinity: ${npc.affinity}`, {
+    addText(this, barX, barY + 11, `Affinity: ${npc.affinity}`, {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '10px',
       color: '#7a6e9a',

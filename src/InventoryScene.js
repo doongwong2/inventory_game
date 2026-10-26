@@ -7,8 +7,9 @@ import {
   GRID, ITEM_DEFS, SHELF_DEFS, DAYS, GameState, newInstanceId
 } from './GameData.js';
 import {
-  canPlace, placeItem, removeItem, getOccupiedCells, pixelToCell
+  canPlace, placeItem, removeItem, getOccupiedCells, getItemShape
 } from './GridEngine.js';
+import { addText } from './uiText.js';
 
 const CELL = GRID.CELL;          // 40px
 const PAL = {
@@ -28,6 +29,9 @@ const PAL = {
   roomFloor: 0x1e1030,
   shelfWood: 0x6b4226,
   shelfDark: 0x4a2d18,
+  shelfTop: 0x9a6739,
+  shelfSide: 0x4b2d1d,
+  shelfOpening: 0x392319,
   btnGo: 0x2d7a2d,
   btnGoHover: 0x3daa3d,
 };
@@ -56,6 +60,7 @@ export class InventoryScene extends Phaser.Scene {
     this._drag = null;
     this._gridViews = [];
     this._allItems = {};
+    this._hoveredItemId = null;
     this._scrollY = 0;
 
     // ── Backgrounds ──────────────────────────────────────────
@@ -76,6 +81,7 @@ export class InventoryScene extends Phaser.Scene {
 
     // ── Left: Room View ──────────────────────────────────────
     this._drawRoom();
+    this._roomShelfItemsGfx = this.add.graphics().setDepth(5);
 
     // ── Right: Scrollable Grid Panel ─────────────────────────
     this._buildScrollPanel();
@@ -91,9 +97,13 @@ export class InventoryScene extends Phaser.Scene {
 
     // ── Input ────────────────────────────────────────────────
     this.input.on('pointermove', this._onPointerMove, this);
+    this.input.on('pointerdown', this._onScenePointerDown, this);
     this.input.on('pointerup', this._onPointerUp, this);
+    this.input.mouse.disableContextMenu();
     this.input.on('wheel', (ptr, gameObjs, dx, dy) => {
-      this._scrollBy(dy * 0.6);
+      if (ptr.x >= RIGHT_X && ptr.y >= SCROLL_Y && ptr.y < this.scale.height - 50) {
+        this._scrollBy(dy * 0.6);
+      }
     });
 
     // ── "Head Out" button ────────────────────────────────────
@@ -101,7 +111,7 @@ export class InventoryScene extends Phaser.Scene {
 
     // ── Tooltip ──────────────────────────────────────────────
     this._tooltipBg = this.add.rectangle(0, 0, 180, 56, 0x1a0a2e, 0.92).setDepth(200).setVisible(false).setOrigin(0);
-    this._tooltipTxt = this.add.text(0, 0, '', {
+    this._tooltipTxt = addText(this, 0, 0, '', {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '11px',
       color: PAL.text,
@@ -136,26 +146,27 @@ export class InventoryScene extends Phaser.Scene {
     hg.strokePath();
 
     // Day label
-    this.add.text(16, 12, `DAY ${dayNum}  /  7`, {
+    addText(this, 16, 12, `DAY ${dayNum}  /  7`, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '10px',
       color: '#f9e4b7',
     });
 
     // Activity hint
-    this.add.text(16, 34, `Today: ${activity}${npc ? ' · ' + npc.name : ''}`, {
+    addText(this, 16, 34, `Today: ${activity}${npc ? ' · ' + npc.name : ''}`, {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '12px',
       color: '#c9b8e8',
     });
 
-    // Phase label
-    this.add.text(RIGHT_X + 10, 12, 'PACK YOUR BAG', {
+    // Phase label. Shift it left to leave a clear gap before the affinity strip.
+    const phaseTextX = RIGHT_X - 90;
+    addText(this, phaseTextX, 12, 'PACK YOUR BAG', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '9px',
       color: '#9b5fd0',
     });
-    this.add.text(RIGHT_X + 10, 32, 'Drag items into your bag or shelves', {
+    addText(this, phaseTextX, 32, 'Drag to place · Right-click to rotate', {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '11px',
       color: '#7a6e9a',
@@ -180,9 +191,9 @@ export class InventoryScene extends Phaser.Scene {
       fillG.fillStyle(npc.color, 0.8);
       fillG.fillRect(ox, 17, Math.max(2, bw * pct), 20);
       // name
-      this.add.text(ox + bw / 2, 27, npc.name.substring(0, 5), {
+      addText(this, ox + bw / 2, 27, npc.name.substring(0, 5), {
         fontFamily: '"Press Start 2P", monospace',
-        fontSize: '6px',
+        fontSize: '8px',
         color: '#f9e4b7',
       }).setOrigin(0.5);
     }
@@ -192,66 +203,37 @@ export class InventoryScene extends Phaser.Scene {
   // LEFT: ROOM VIEW
   // ─────────────────────────────────────────────────────────────
   _drawRoom() {
-    const H = this.scale.height;
-    const roomW = RIGHT_X - 20;
-    const roomH = H - 60;
-    const roomX = 0;
-    const roomY = 60;
-
     const rg = this.add.graphics();
+    // Two angled walls and a receding floor establish a compact isometric room.
+    this._fillPoly(rg, [[0, 60], [345, 60], [345, 316], [0, 316]], 0x30204a);
+    this._fillPoly(rg, [[345, 60], [410, 104], [410, 360], [345, 316]], 0x241638);
+    this._fillPoly(rg, [[0, 316], [345, 316], [410, 360], [92, 510], [0, 452]], 0x26143a);
 
-    // Wall
-    rg.fillStyle(PAL.roomWall);
-    rg.fillRect(roomX, roomY, roomW, roomH * 0.65);
+    // Wall/floor trim follows the room's perspective; keep the floor clear.
+    rg.lineStyle(5, 0x503765, 0.9);
+    rg.beginPath(); rg.moveTo(0, 316); rg.lineTo(345, 316); rg.lineTo(410, 360); rg.strokePath();
 
-    // Floor
-    rg.fillStyle(PAL.roomFloor);
-    rg.fillRect(roomX, roomY + roomH * 0.65, roomW, roomH * 0.35);
+    this._drawRoomWindow(rg, 18, 92, 76, 68);
+    this._drawPoster(rg, 114, 94, 48, 62);
 
-    // Wall–floor border (skirting)
-    rg.fillStyle(0x3d2b5e);
-    rg.fillRect(roomX, roomY + roomH * 0.65 - 4, roomW, 8);
+    // Three matching wall-mounted 3×3 cubbies correspond to shelves A, B, and C.
+    this._drawSmallShelfRow(rg, 24, 165);
 
-    // Floor boards (horizontal lines)
-    rg.lineStyle(1, 0x2a1840, 0.5);
-    for (let fy = roomY + roomH * 0.65 + 18; fy < roomY + roomH; fy += 18) {
-      rg.beginPath();
-      rg.moveTo(roomX, fy);
-      rg.lineTo(roomX + roomW, fy);
-      rg.strokePath();
-    }
+    // The desk runs along the back wall. The tall bookcase projects out from it
+    // at a right angle and reaches down onto the floor.
+    this._drawDesk(rg, 12, 319, 180, 48);
+    // Keep the cabinet openings beside the desk, with its solid side wall
+    // receding left and up behind them.
+    this._drawFloorBookcase(rg, 184, 155, 66, 207);
 
-    // Window on wall
-    const wx = roomX + 20;
-    const wy = roomY + 20;
-    this._drawRoomWindow(rg, wx, wy, 80, 70);
+    rg.fillStyle(0x4a2060, 0.52);
+    rg.fillEllipse(167, 415, 118, 34);
+    this._drawBagIcon(rg, 30, 405);
+  }
 
-    // Poster on wall
-    this._drawPoster(rg, roomX + 160, roomY + 22, 55, 70);
-
-    // Desk
-    const deskX = roomX + 5;
-    const deskY = roomY + roomH * 0.65 - 55;
-    this._drawDesk(rg, deskX, deskY, roomW - 10, 50);
-
-    // Shelves on wall (visual only — actual grids are on the right)
-    this._drawShelfUnit(rg, roomX + 10, roomY + 105, 'shelf_a', 'Small Shelf A');
-    this._drawShelfUnit(rg, roomX + 120, roomY + 105, 'shelf_b', 'Small Shelf B');
-    this._drawShelfUnit(rg, roomX + 240, roomY + 70, 'shelf_c', 'Big Bookcase');
-
-    // Rug
-    rg.fillStyle(0x4a2060, 0.6);
-    rg.fillEllipse(roomW / 2, roomY + roomH * 0.83, roomW * 0.55, 30);
-
-    // Bag on floor (visual)
-    this._drawBagIcon(rg, roomX + 25, roomY + roomH * 0.78);
-
-    // Room label
-    this.add.text(roomX + roomW / 2, roomY + roomH - 18, 'Your Room', {
-      fontFamily: '"Press Start 2P", monospace',
-      fontSize: '7px',
-      color: '#4a3d6a',
-    }).setOrigin(0.5);
+  _fillPoly(g, points, color, alpha = 1) {
+    g.fillStyle(color, alpha);
+    g.fillPoints(points.map(([x, y]) => new Phaser.Geom.Point(x, y)), true);
   }
 
   _drawRoomWindow(g, x, y, w, h) {
@@ -281,69 +263,145 @@ export class InventoryScene extends Phaser.Scene {
   }
 
   _drawDesk(g, x, y, w, h) {
-    // desk top
-    g.fillStyle(PAL.shelfWood);
-    g.fillRect(x, y, w, 10);
-    // desk body
-    g.fillStyle(PAL.shelfDark);
-    g.fillRect(x, y + 10, w, h - 10);
-    // drawers
-    g.fillStyle(0x5c3820);
-    g.fillRect(x + w - 80, y + 14, 70, h - 18);
-    g.fillStyle(PAL.shelfWood);
-    g.fillRect(x + w - 78, y + 16, 66, 14);
-    g.fillRect(x + w - 78, y + 34, 66, 14);
-    // desk items (decorative)
-    // coffee cup
-    g.fillStyle(0x7ec8e3);
-    g.fillRect(x + 14, y - 18, 14, 16);
-    g.fillStyle(0x5ab8d3);
-    g.fillRect(x + 14, y - 20, 14, 4);
-    // book stack
-    g.fillStyle(0xe07b54);
-    g.fillRect(x + 40, y - 28, 20, 8);
-    g.fillStyle(0xf6d860);
-    g.fillRect(x + 42, y - 36, 18, 8);
-    g.fillStyle(0x7ec8e3);
-    g.fillRect(x + 40, y - 44, 22, 8);
-    // pencil holder
+    // Build the desktop as a plane whose front edge shifts down and right.
+    const depth = 10;
+    this._fillPoly(g, [[x, y], [x + w, y], [x + w + depth, y + depth], [x + depth, y + depth]], PAL.shelfWood);
+    g.lineStyle(3, PAL.shelfDark, 1);
+    g.beginPath();
+    g.moveTo(x, y); g.lineTo(x + w, y);
+    g.lineTo(x + w + depth, y + depth); g.lineTo(x + depth, y + depth);
+    g.lineTo(x, y); g.strokePath();
+
+    // Apron and legs follow the shifted front edge of the desktop.
+    g.fillStyle(0x49301f);
+    g.fillRect(x + 10, y + 18, 8, h + 5);
+    g.fillRect(x + w - 18, y + 18, 8, h + 5);
     g.fillStyle(0x4a2d18);
-    g.fillRect(x + 78, y - 22, 14, 20);
+    g.fillRect(x + depth, y + depth, w, 9);
+    g.fillStyle(0x3b2417);
+    g.fillRect(x + depth + 10, y + depth + 18, 8, h + 12);
+    g.fillRect(x + depth + w - 18, y + depth + 18, 8, h + 12);
+    g.fillStyle(0x6b4226);
+    g.fillRect(x + depth + 25, y + depth + 2, 48, 13);
+    g.fillStyle(0xc08a52);
+    g.fillRect(x + depth + 45, y + depth + 6, 9, 2);
+
+    // Open notebook and writing lines sit on the desktop.
+    const deskOffset = offset => depth * offset / w;
+    const bookOffset = deskOffset(82);
+    this._fillPoly(g, [[x + 82 + bookOffset, y + 3 + bookOffset], [x + 111 + bookOffset, y + 3 + bookOffset], [x + 116 + bookOffset, y - 3 + bookOffset], [x + 87 + bookOffset, y - 3 + bookOffset]], 0xe8d8b8);
+    g.lineStyle(1, 0x8d7a63, 0.9);
+    for (let i = 0; i < 3; i++) {
+      g.beginPath(); g.moveTo(x + 88 + bookOffset, y - 1 + bookOffset + i * 2); g.lineTo(x + 108 + bookOffset, y - 1 + bookOffset + i * 2); g.strokePath();
+    }
+    // Small desk lamp and pencil cup make the furniture read as a study desk.
+    const lampOffset = deskOffset(146);
+    g.fillStyle(0x46301e);
+    g.fillRect(x + 146 + lampOffset, y - 12 + lampOffset, 3, 13);
+    g.fillRect(x + 141 + lampOffset, y + lampOffset, 14, 3);
+    this._fillPoly(g, [[x + 140 + lampOffset, y - 12 + lampOffset], [x + 151 + lampOffset, y - 12 + lampOffset], [x + 155 + lampOffset, y - 6 + lampOffset], [x + 137 + lampOffset, y - 6 + lampOffset]], 0xf0c86a);
+    g.fillStyle(0x50301f);
+    const cupOffset = deskOffset(w - 28);
+    g.fillRect(x + w - 28 + cupOffset, y - 9 + cupOffset, 12, 10);
     g.fillStyle(0xf6d860);
-    g.fillRect(x + 81, y - 30, 4, 10);
-    g.fillStyle(0x7ec8e3);
-    g.fillRect(x + 86, y - 28, 3, 8);
+    g.fillRect(x + w - 25 + cupOffset, y - 16 + cupOffset, 3, 9);
+    g.fillRect(x + w - 19 + cupOffset, y - 14 + cupOffset, 3, 7);
   }
 
-  _drawShelfUnit(g, x, y, shelfId, label) {
-    const def = SHELF_DEFS.find(s => s.id === shelfId);
-    if (!def) return;
-    // Scale shelf drawing to fit room
-    const scale = 0.38;
-    const sw = def.cols * CELL * scale;
-    const sh = def.rows * CELL * scale;
+  _drawSmallShelfRow(g, x, y) {
+    const sw = 48;
+    const sh = 48;
+    const depth = 10;
+    const rowW = sw * 3;
+    // Draw the side faces and top of a cuboid. Its front face shifts down/right
+    // by `depth`; the three shelf openings on that face remain square.
+    this._fillPoly(g, [
+      [x, y], [x + depth, y + depth],
+      [x + depth, y + depth + sh], [x, y + sh],
+    ], PAL.shelfSide);
+    this._fillPoly(g, [
+      [x + rowW, y], [x + rowW + depth, y + depth],
+      [x + rowW + depth, y + depth + sh], [x + rowW, y + sh],
+    ], PAL.shelfSide);
+    this._fillPoly(g, [
+      [x, y], [x + rowW, y],
+      [x + rowW + depth, y + depth], [x + depth, y + depth],
+    ], PAL.shelfTop);
+    // Crisp wooden edges make the top plane and cube silhouette read clearly.
+    g.lineStyle(3, PAL.shelfWood, 1);
+    g.beginPath();
+    g.moveTo(x, y); g.lineTo(x + rowW, y);
+    g.lineTo(x + rowW + depth, y + depth); g.lineTo(x + depth, y + depth);
+    g.lineTo(x, y); g.strokePath();
+    g.beginPath();
+    g.moveTo(x, y); g.lineTo(x, y + sh);
+    g.lineTo(x + depth, y + depth + sh); g.strokePath();
+    g.beginPath();
+    g.moveTo(x + rowW, y); g.lineTo(x + rowW, y + sh);
+    g.lineTo(x + rowW + depth, y + depth + sh); g.lineTo(x + rowW + depth, y + depth);
+    g.strokePath();
+    g.fillStyle(PAL.shelfOpening);
+    g.fillRect(x + depth, y + depth, rowW, sh);
+    g.lineStyle(3, PAL.shelfWood, 1);
+    g.strokeRect(x + depth, y + depth, rowW, sh);
+    // Shared divider walls keep the three openings joined as [][][]
+    for (let divider = 1; divider < 3; divider++) {
+      const dx = x + depth + divider * sw;
+      g.lineStyle(4, PAL.shelfWood, 1);
+      g.beginPath(); g.moveTo(dx, y + depth); g.lineTo(dx, y + depth + sh); g.strokePath();
+    }
+    ['A', 'B', 'C'].forEach((label, index) => {
+      addText(this, x + depth + index * sw + sw / 2, y + depth + sh + 13, label, {
+        fontFamily: '"Press Start 2P", monospace', fontSize: '8px', color: '#c9b8e8',
+      }).setOrigin(0.5);
+    });
+  }
 
-    // back panel
-    g.fillStyle(0x2a1a3e);
-    g.fillRect(x, y, sw + 8, sh + 16);
+  _drawFloorBookcase(g, x, y, frontW, height) {
+    // Side A is the open shelf face; side B is the solid back wall.
+    const depthX = 36;
+    const depthY = 36;
+    const openX = x + depthX;
+    const openY = y + depthY;
+    const levels = 5;
+    const levelH = height / levels;
 
-    // shelves (horizontal dividers)
-    g.fillStyle(PAL.shelfWood);
-    g.fillRect(x, y, sw + 8, 5);  // top
-    g.fillRect(x, y + sh + 11, sw + 8, 5);  // bottom
-    g.fillRect(x, y + (sh + 11) / 2, sw + 8, 4); // mid
+    // The diagonal left plane contains the actual empty openings (A).
+    this._fillPoly(g, [
+      [x, y], [openX, openY], [openX, openY + height], [x, y + height],
+    ], PAL.shelfSide);
+    for (let level = 0; level < levels; level++) {
+      const sideTop = y + level * levelH;
+      const sideBottom = y + (level + 1) * levelH;
+      const frontTop = openY + level * levelH;
+      const frontBottom = openY + (level + 1) * levelH;
+      this._fillPoly(g, [
+        [x + 2, sideTop + 2], [openX - 2, frontTop + 2],
+        [openX - 2, frontBottom - 2], [x + 2, sideBottom - 2],
+      ], PAL.shelfOpening);
+    }
 
-    // side panels
-    g.fillStyle(PAL.shelfDark);
-    g.fillRect(x, y, 5, sh + 16);
-    g.fillRect(x + sw + 3, y, 5, sh + 16);
+    // The rectangular right plane is a solid wall (B), not another opening.
+    this._fillPoly(g, [
+      [openX, openY], [openX + frontW, openY],
+      [openX + frontW, openY + height], [openX, openY + height],
+    ], PAL.shelfSide);
 
-    // shelf label (tiny)
-    this.add.text(x + (sw + 8) / 2, y + sh + 22, label, {
-      fontFamily: '"Press Start 2P", monospace',
-      fontSize: '5px',
-      color: '#7a6e9a',
-    }).setOrigin(0.5);
+    // A single flat-color plank bridges the back edge to the front edge.
+    this._fillPoly(g, [
+      [x, y], [x + frontW, y],
+      [openX + frontW, openY], [openX, openY],
+    ], PAL.shelfTop);
+
+    // Wood rails separate the five open bays on side A; B stays a plain wall.
+    g.lineStyle(4, 0x8a5a31, 1);
+    g.beginPath(); g.moveTo(x, y); g.lineTo(openX, openY); g.strokePath();
+    g.beginPath(); g.moveTo(x, y + height); g.lineTo(openX, openY + height); g.strokePath();
+    for (let level = 1; level < levels; level++) {
+      const sideY = y + level * levelH;
+      const frontY = openY + level * levelH;
+      g.beginPath(); g.moveTo(x, sideY); g.lineTo(openX, frontY); g.strokePath();
+    }
   }
 
   _drawBagIcon(g, x, y) {
@@ -370,7 +428,7 @@ export class InventoryScene extends Phaser.Scene {
     g.fillStyle(0x5a3090);
     g.fillRect(x + 8, y + 16, 20, 12);
     // label
-    this.add.text(x + 18, y + 44, 'BAG  5×7', {
+    addText(this, x + 18, y + 44, 'BAG  5×7', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '5px',
       color: '#6b3fa0',
@@ -390,7 +448,9 @@ export class InventoryScene extends Phaser.Scene {
     pg.fillRect(RIGHT_X - 10, 55, panelW + 10, H - 55);
 
     // Scrollable container
-    this._contentContainer = this.add.container(RIGHT_X, SCROLL_Y);
+    // Keep the full right panel under one scroll transform so shelf frames,
+    // grid lines, hit zones, labels, and placed items always move together.
+    this._contentContainer = this.add.container(0, 0);
     this._contentContainer.setDepth(10);
 
     // Mask for scroll region
@@ -422,22 +482,40 @@ export class InventoryScene extends Phaser.Scene {
     divLine.moveTo(RIGHT_X + 5, SCROLL_Y + yOffset);
     divLine.lineTo(this.scale.width - 5, SCROLL_Y + yOffset);
     divLine.strokePath();
+    this._contentContainer.add(divLine);
 
     yOffset += 10;
 
-    // Shelf grids
-    for (const sdef of SHELF_DEFS) {
-      yOffset = this._addGridView({
+    // Keep all three small shelves visible together in a single row.
+    const shelfRowY = yOffset;
+    SHELF_DEFS.forEach((sdef, index) => {
+      if (sdef.id === 'big_shelf') return;
+      this._addGridView({
         id: sdef.id,
         cols: sdef.cols,
         rows: sdef.rows,
         label: sdef.label,
         color: PAL.shelfWood,
+        xOff: 10 + index * 122,
+        yOff: shelfRowY,
+        isShelf: true,
+      });
+    });
+    yOffset = shelfRowY + 24 + GRID.CELL * 3 + 22;
+
+    // The floor-standing shelf has its own taller grid beneath the small row.
+    const bigShelf = SHELF_DEFS.find(sdef => sdef.id === 'big_shelf');
+    if (bigShelf) {
+      yOffset = this._addGridView({
+        id: bigShelf.id,
+        cols: bigShelf.cols,
+        rows: bigShelf.rows,
+        label: bigShelf.label,
+        color: PAL.shelfWood,
         xOff: 10,
         yOff: yOffset,
         isShelf: true,
       });
-      yOffset += 8;
     }
 
     // Item tray (floating / unplaced items)
@@ -458,12 +536,14 @@ export class InventoryScene extends Phaser.Scene {
     const lbg = this.add.rectangle(
       RIGHT_X + xOff + gw / 2, SCROLL_Y + yOff + 14, gw + 12, 22, PAL.labelBg
     );
+    this._contentContainer.add(lbg);
 
-    this.add.text(RIGHT_X + xOff + 4, SCROLL_Y + yOff + 5, label, {
+    const labelText = addText(this, RIGHT_X + xOff + 4, SCROLL_Y + yOff + 5, label, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '7px',
       color: '#f9e4b7',
     });
+    this._contentContainer.add(labelText);
 
     yOff += 24;
 
@@ -473,6 +553,7 @@ export class InventoryScene extends Phaser.Scene {
     gbg.fillRect(RIGHT_X + xOff - 1, SCROLL_Y + yOff - 1, gw + 2, gh + 2);
     gbg.lineStyle(2, color, 0.7);
     gbg.strokeRect(RIGHT_X + xOff - 2, SCROLL_Y + yOff - 2, gw + 4, gh + 4);
+    this._contentContainer.add(gbg);
 
     // Grid lines
     const gg = this.add.graphics();
@@ -489,11 +570,27 @@ export class InventoryScene extends Phaser.Scene {
       gg.lineTo(RIGHT_X + xOff + gw, SCROLL_Y + yOff + r * CELL);
       gg.strokePath();
     }
+    this._contentContainer.add(gg);
+
+    // The big shelf has physical dividers after each pair of rows.
+    if (id === 'big_shelf') {
+      const dividers = this.add.graphics().setDepth(19);
+      dividers.lineStyle(4, PAL.shelfWood, 1);
+      for (let row = 2; row < rows; row += 2) {
+        const dividerY = SCROLL_Y + yOff + row * CELL;
+        dividers.beginPath();
+        dividers.moveTo(RIGHT_X + xOff, dividerY);
+        dividers.lineTo(RIGHT_X + xOff + gw, dividerY);
+        dividers.strokePath();
+      }
+      this._contentContainer.add(dividers);
+    }
 
     // Invisible interactive zone for the grid
     const zone = this.add.zone(
       RIGHT_X + xOff, SCROLL_Y + yOff, gw, gh
     ).setOrigin(0).setInteractive();
+    this._contentContainer.add(zone);
 
     // Register grid view
     const view = {
@@ -503,7 +600,7 @@ export class InventoryScene extends Phaser.Scene {
       _baseY: SCROLL_Y + yOff,
       grid: isShelf ? GameState.shelves[id].grid : GameState.bagGrid,
       items: isShelf ? GameState.shelves[id].items : GameState.bagItems,
-      gfx: this.add.graphics().setDepth(20),
+      gfx: this._contentContainer.add(this.add.graphics().setDepth(20)),
       zone,
     };
     this._gridViews.push(view);
@@ -512,21 +609,19 @@ export class InventoryScene extends Phaser.Scene {
     zone.on('pointermove', (ptr) => {
       if (this._drag) this._onGridHover(view, ptr);
     });
-    zone.on('pointerdown', (ptr) => {
-      this._onGridPointerDown(view, ptr);
-    });
 
     return yOff + gh + 14;
   }
 
   _addItemTray() {
     const trayX = 10;
-    const trayY = this.scale.height - 90;
+    // Taller tray overlays the lower edge of the room, as requested.
+    const trayY = this.scale.height - 142;
     const trayW = RIGHT_X - 30;
-    const trayH = 60;
+    const trayH = 110;
 
     // Label
-    this.add.text(trayX, trayY, 'ITEMS (drag to place)', {
+    addText(this, trayX, trayY, 'ITEMS (drag to place)', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '7px',
       color: '#9b5fd0',
@@ -555,83 +650,207 @@ export class InventoryScene extends Phaser.Scene {
   _syncFromGameState() {
     // Place existing bag items
     for (const item of GameState.bagItems) {
-      this._renderItem(item.instanceId, item.itemKey, 'bag', item.originX, item.originY);
+      this._renderItem(item.instanceId, item.itemKey, 'bag', item.originX, item.originY, item.rotation || 0);
     }
     // Place shelf items
     for (const sdef of SHELF_DEFS) {
       for (const item of GameState.shelves[sdef.id].items) {
-        this._renderItem(item.instanceId, item.itemKey, sdef.id, item.originX, item.originY);
+        this._renderItem(item.instanceId, item.itemKey, sdef.id, item.originX, item.originY, item.rotation || 0);
       }
     }
     // Floating items → render in tray
     this._layoutTray();
+    this._drawRoomShelfItems();
+  }
+
+  _drawRoomShelfItems() {
+    const gfx = this._roomShelfItemsGfx;
+    if (!gfx) return;
+    gfx.clear();
+
+    // Each wall cubby is 48px square and represents a 3x3 shelf grid.
+    const cellSize = 16;
+    const faceX = 24 + 10;
+    const faceY = 165 + 10;
+    for (let shelfIndex = 0; shelfIndex < 3; shelfIndex++) {
+      const shelfId = `shelf_${String.fromCharCode(97 + shelfIndex)}`;
+      const shelf = GameState.shelves[shelfId];
+      if (!shelf) continue;
+      const shelfX = faceX + shelfIndex * 48;
+
+      for (const item of shelf.items) {
+        const def = ITEM_DEFS[item.itemKey];
+        if (!def) continue;
+        for (const [dc, dr] of getItemShape(item.itemKey, item.rotation || 0)) {
+          const cellX = shelfX + (item.originX + dc) * cellSize;
+          const cellY = faceY + (item.originY + dr) * cellSize;
+          const inset = 1;
+          const size = cellSize - inset * 2;
+          gfx.fillStyle(def.color, 1);
+          gfx.fillRect(cellX + inset, cellY + inset, size, size);
+          gfx.fillStyle(0xffffff, 0.25);
+          gfx.fillRect(cellX + inset, cellY + inset, size, 2);
+          gfx.fillStyle(0x000000, 0.2);
+          gfx.fillRect(cellX + inset, cellY + cellSize - 3, size, 2);
+        }
+      }
+    }
+
+    // The big shelf's A face is the diagonal plane from (184,155) to (220,191).
+    // Project its 8x10 cells onto that plane so occupied cells keep the same
+    // orientation as the right-side grid while following the shelf depth.
+    const bigShelf = GameState.shelves.big_shelf;
+    if (!bigShelf) return;
+    const cols = 8;
+    const rows = 10;
+    const backX = 184;
+    const backY = 155;
+    const depthX = 36;
+    const depthY = 36;
+    const shelfHeight = 207;
+    const colStepX = depthX / cols;
+    const colStepY = depthY / cols;
+    const rowStepY = shelfHeight / rows;
+
+    for (const item of bigShelf.items) {
+      const def = ITEM_DEFS[item.itemKey];
+      if (!def) continue;
+      for (const [dc, dr] of getItemShape(item.itemKey, item.rotation || 0)) {
+        const col = item.originX + dc;
+        const row = item.originY + dr;
+        const points = [
+          [backX + col * colStepX + 0.25, backY + col * colStepY + row * rowStepY + 0.5],
+          [backX + (col + 1) * colStepX - 0.25, backY + (col + 1) * colStepY + row * rowStepY + 0.5],
+          [backX + (col + 1) * colStepX - 0.25, backY + (col + 1) * colStepY + (row + 1) * rowStepY - 0.5],
+          [backX + col * colStepX + 0.25, backY + col * colStepY + (row + 1) * rowStepY - 0.5],
+        ];
+        this._fillPoly(gfx, points, def.color);
+      }
+    }
   }
 
   _layoutTray() {
-    const perRow = Math.floor(this._trayW / (CELL + 4));
-    let tx = 0, ty = 0;
-    for (const fi of GameState.floatingItems) {
-      if (!this._allItems[fi.instanceId]) {
-        this._renderFloatingItem(fi.instanceId, fi.itemKey, tx, ty);
-        tx++;
-        if (tx >= perRow) { tx = 0; ty++; }
-      }
-    }
+    this._hoveredItemId = null;
+    if (this._tooltipBg) this._hideTooltip();
     // Pending items from events
     for (const pi of GameState.pendingItems) {
-      if (!this._allItems[pi.instanceId]) {
+      if (!GameState.floatingItems.some(i => i.instanceId === pi.instanceId)) {
         GameState.floatingItems.push(pi);
-        this._renderFloatingItem(pi.instanceId, pi.itemKey, tx, ty);
-        tx++;
-        if (tx >= perRow) { tx = 0; ty++; }
       }
     }
     GameState.pendingItems = [];
+    const gap = 4;
+    const entries = GameState.floatingItems.map(item => {
+      const def = ITEM_DEFS[item.itemKey];
+      return {
+        item,
+        cols: Math.max(...getItemShape(item.itemKey, item.rotation || 0).map(([col]) => col + 1)),
+        rows: Math.max(...getItemShape(item.itemKey, item.rotation || 0).map(([, row]) => row + 1)),
+        labelWidth: Math.max(28, def.name.length * 4.2),
+      };
+    });
+    const cellScale = Math.min(
+      0.3,
+      this._trayH / (Math.max(1, ...entries.map(entry => entry.rows)) * CELL),
+      Math.max(0.05, (this._trayW - 8 - entries.reduce((sum, entry) => sum + entry.labelWidth, 0) - gap * Math.max(0, entries.length - 1)) /
+        Math.max(CELL, entries.reduce((sum, entry) => sum + entry.cols * CELL, 0)))
+    );
+    let x = this._trayX + 4;
+    for (const entry of entries) {
+      const fi = entry.item;
+      const existing = this._allItems[fi.instanceId];
+      existing?.gfx?.destroy();
+      existing?.label?.destroy();
+      delete this._allItems[fi.instanceId];
+      const width = entry.cols * CELL * cellScale;
+      const height = entry.rows * CELL * cellScale;
+      const y = this._trayY + (this._trayH - height) / 2;
+      this._renderFloatingItem(fi.instanceId, fi.itemKey, x, y, cellScale, width, height, entry.labelWidth, fi.rotation || 0);
+      x += width + 3 + entry.labelWidth + gap;
+    }
   }
 
-  _renderItem(instanceId, itemKey, gridId, originX, originY) {
+  _renderItem(instanceId, itemKey, gridId, originX, originY, rotation = 0) {
     const view = this._getView(gridId);
     if (!view) return;
     const gfx = this.add.graphics().setDepth(25);
-    this._drawItemOnGrid(gfx, itemKey, view.x + originX * CELL, view.y + originY * CELL);
-    gfx.setInteractive(
-      new Phaser.Geom.Rectangle(
-        view.x + originX * CELL,
-        view.y + originY * CELL,
-        ITEM_DEFS[itemKey].shape.reduce((m, [c]) => Math.max(m, c + 1), 1) * CELL,
-        ITEM_DEFS[itemKey].shape.reduce((m, [, r]) => Math.max(m, r + 1), 1) * CELL,
-      ),
-      Phaser.Geom.Rectangle.Contains
-    );
-    gfx.on('pointerdown', (ptr) => this._pickUpItem(instanceId, itemKey, gridId, originX, originY, ptr));
-    gfx.on('pointerover', () => this._showTooltip(itemKey, gfx));
-    gfx.on('pointerout', () => this._hideTooltip());
-    this._allItems[instanceId] = { itemKey, gridId, originX, originY, gfx };
+    this._contentContainer.add(gfx);
+    const bounds = this._getItemLocalBounds({ itemKey, gridId, originX, originY, rotation });
+    this._drawItemOnGrid(gfx, itemKey, bounds.x, bounds.y, 1, rotation);
+    const label = this._addItemNameLabel(itemKey, bounds, this._contentContainer);
+    this._allItems[instanceId] = { itemKey, gridId, originX, originY, rotation, gfx, label };
   }
 
-  _renderFloatingItem(instanceId, itemKey, trayCol, trayRow) {
-    const px = this._trayX + trayCol * (CELL + 4) + 4;
-    const py = this._trayY + trayRow * (CELL + 4) + 4;
+  _renderFloatingItem(instanceId, itemKey, px, py, cellScale, width, height, labelWidth, rotation = 0) {
     const gfx = this.add.graphics().setDepth(25);
-    this._drawItemOnGrid(gfx, itemKey, px, py, 0.85);
-    gfx.setInteractive(
-      new Phaser.Geom.Rectangle(px, py, CELL, CELL),
-      Phaser.Geom.Rectangle.Contains
-    );
-    gfx.on('pointerdown', (ptr) => this._pickUpFloating(instanceId, itemKey, ptr));
-    gfx.on('pointerover', () => this._showTooltip(itemKey, gfx));
-    gfx.on('pointerout', () => this._hideTooltip());
-    this._allItems[instanceId] = { itemKey, gridId: null, originX: trayCol, originY: trayRow, gfx };
+    this._drawItemOnGrid(gfx, itemKey, px, py, cellScale, rotation);
+    const label = addText(this, px + width + 3, py + height / 2, ITEM_DEFS[itemKey].name, {
+      fontFamily: '"Nunito", sans-serif',
+      fontSize: '8px',
+      color: '#ffffff',
+      align: 'left',
+      backgroundColor: '#1a0a2e',
+      padding: { x: 1, y: 1 },
+      wordWrap: { width: labelWidth },
+    }).setOrigin(0, 0.5).setDepth(26);
+    this._allItems[instanceId] = {
+      itemKey, gridId: null, pileX: px, pileY: py, trayScale: cellScale, rotation,
+      pileWidth: width, pileHeight: height, gfx, label,
+    };
+  }
+
+  _getItemBounds(info) {
+    if (!info.gridId) {
+      return {
+        x: info.pileX,
+        y: info.pileY,
+        width: info.pileWidth,
+        height: info.pileHeight,
+      };
+    }
+    const view = this._getView(info.gridId);
+    const shape = getItemShape(info.itemKey, info.rotation || 0);
+    return {
+      x: view.x + info.originX * CELL,
+      y: view._baseY + info.originY * CELL - this._scrollY,
+      width: Math.max(...shape.map(([col]) => col + 1)) * CELL,
+      height: Math.max(...shape.map(([, row]) => row + 1)) * CELL,
+    };
+  }
+
+  _addItemNameLabel(itemKey, bounds, container = null) {
+    const label = addText(this, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, ITEM_DEFS[itemKey].name, {
+      fontFamily: '"Nunito", sans-serif',
+      fontSize: '9px',
+      color: '#ffffff',
+      align: 'center',
+      backgroundColor: '#1a0a2e',
+      padding: { x: 2, y: 1 },
+      wordWrap: { width: Math.max(36, bounds.width - 4) },
+    }).setOrigin(0.5).setDepth(26);
+    if (container) container.add(label);
+    return label;
+  }
+
+  _getItemLocalBounds(info) {
+    const view = this._getView(info.gridId);
+    const shape = getItemShape(info.itemKey, info.rotation || 0);
+    return {
+      x: view.x + info.originX * CELL,
+      y: view._baseY + info.originY * CELL,
+      width: Math.max(...shape.map(([col]) => col + 1)) * CELL,
+      height: Math.max(...shape.map(([, row]) => row + 1)) * CELL,
+    };
   }
 
   // ─────────────────────────────────────────────────────────────
   // DRAWING HELPERS
   // ─────────────────────────────────────────────────────────────
-  _drawItemOnGrid(gfx, itemKey, baseX, baseY, scale = 1) {
+  _drawItemOnGrid(gfx, itemKey, baseX, baseY, scale = 1, rotation = 0) {
     const def = ITEM_DEFS[itemKey];
     if (!def) return;
     gfx.clear();
-    for (const [dc, dr] of def.shape) {
+    for (const [dc, dr] of getItemShape(itemKey, rotation)) {
       const cx = baseX + dc * CELL * scale;
       const cy = baseY + dr * CELL * scale;
       const cs = CELL * scale - 2;
@@ -656,12 +875,12 @@ export class InventoryScene extends Phaser.Scene {
     }
   }
 
-  _drawItemGhost(gfx, itemKey, baseX, baseY, valid) {
+  _drawItemGhost(gfx, itemKey, baseX, baseY, valid, rotation = 0) {
     const def = ITEM_DEFS[itemKey];
     if (!def) return;
     gfx.clear();
     const col = valid ? PAL.gridGood : PAL.gridBad;
-    for (const [dc, dr] of def.shape) {
+    for (const [dc, dr] of getItemShape(itemKey, rotation)) {
       const cx = baseX + dc * CELL;
       const cy = baseY + dr * CELL;
       gfx.fillStyle(col, 0.45);
@@ -685,7 +904,7 @@ export class InventoryScene extends Phaser.Scene {
   // ─────────────────────────────────────────────────────────────
   // DRAG LOGIC
   // ─────────────────────────────────────────────────────────────
-  _pickUpItem(instanceId, itemKey, gridId, originX, originY, ptr) {
+  _pickUpItem(instanceId, itemKey, gridId, originX, originY, ptr, rotation = 0) {
     // Remove from grid
     const view = this._getView(gridId);
     if (view) {
@@ -696,7 +915,9 @@ export class InventoryScene extends Phaser.Scene {
     }
     // Destroy old gfx
     this._allItems[instanceId]?.gfx?.destroy();
+    this._allItems[instanceId]?.label?.destroy();
     delete this._allItems[instanceId];
+    this._drawRoomShelfItems();
 
     // Pointer offset: which cell of item are we holding?
     const localX = ptr.x - (view ? view.x + originX * CELL : ptr.x);
@@ -708,32 +929,88 @@ export class InventoryScene extends Phaser.Scene {
       instanceId, itemKey,
       originGrid: gridId,
       originX, originY,
+      rotation,
       pointerOffsetCol: Math.max(0, pointerOffsetCol),
       pointerOffsetRow: Math.max(0, pointerOffsetRow),
     };
   }
 
-  _pickUpFloating(instanceId, itemKey, ptr) {
+  _pickUpFloating(instanceId, itemKey, ptr, rotation = 0) {
+    const info = this._allItems[instanceId];
     // Remove from floatingItems list
     const idx = GameState.floatingItems.findIndex(i => i.instanceId === instanceId);
     if (idx !== -1) GameState.floatingItems.splice(idx, 1);
     this._allItems[instanceId]?.gfx?.destroy();
+    this._allItems[instanceId]?.label?.destroy();
     delete this._allItems[instanceId];
 
+    const cellScale = info?.trayScale || 1;
     this._drag = {
       instanceId, itemKey,
       originGrid: null,
+      rotation,
       originX: 0, originY: 0,
-      pointerOffsetCol: 0,
-      pointerOffsetRow: 0,
+      pointerOffsetCol: info ? Math.floor((ptr.x - info.pileX) / (CELL * cellScale)) : 0,
+      pointerOffsetRow: info ? Math.floor((ptr.y - info.pileY) / (CELL * cellScale)) : 0,
     };
+    // Close the gap immediately and recreate hit targets at the new positions.
+    this._layoutTray();
+  }
+
+  _onScenePointerDown(ptr) {
+    if (ptr.button === 2 || ptr.event?.button === 2) {
+      if (this._drag) this._rotateDraggedItem(ptr);
+      return;
+    }
+    if (this._drag) return;
+    const entries = Object.entries(this._allItems);
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const [instanceId, info] = entries[i];
+      const bounds = this._getItemBounds(info);
+      if (ptr.x < bounds.x || ptr.x >= bounds.x + bounds.width ||
+        ptr.y < bounds.y || ptr.y >= bounds.y + bounds.height) continue;
+      if (info.gridId) {
+        this._pickUpItem(instanceId, info.itemKey, info.gridId, info.originX, info.originY, ptr, info.rotation || 0);
+      } else {
+        this._pickUpFloating(instanceId, info.itemKey, ptr, info.rotation || 0);
+      }
+      return;
+    }
+  }
+
+  _rotateDraggedItem(ptr) {
+    const drag = this._drag;
+    if (!drag) return;
+    const shape = getItemShape(drag.itemKey, drag.rotation || 0);
+    const cols = Math.max(...shape.map(([col]) => col + 1));
+    const oldCol = drag.pointerOffsetCol;
+    const oldRow = drag.pointerOffsetRow;
+    drag.pointerOffsetCol = oldRow;
+    drag.pointerOffsetRow = cols - 1 - oldCol;
+    drag.rotation = ((drag.rotation || 0) + 1) % 4;
+    this._onPointerMove(ptr);
+  }
+
+  _canPlaceInView(view, itemKey, col, row, excludeInstanceId = null, rotation = 0) {
+    if (!canPlace(view.grid, view.cols, view.rows, itemKey, col, row, excludeInstanceId, rotation)) {
+      return false;
+    }
+    if (view.id !== 'big_shelf') return true;
+
+    // Treat each pair of big-shelf rows as a separate compartment.
+    const rowBands = new Set(
+      getOccupiedCells(itemKey, col, row, rotation).map(cell => Math.floor(cell.row / 2))
+    );
+    return rowBands.size === 1;
   }
 
   _onPointerMove(ptr) {
     if (!this._drag) {
       this._hoverGfx.clear();
+      this._updateItemTooltip(ptr);
       return;
     }
+    this._hideTooltip();
     this._hoverGfx.clear();
     this._ghostGfx.clear();
 
@@ -747,40 +1024,56 @@ export class InventoryScene extends Phaser.Scene {
     if (view) {
       const col = Math.floor((ptr.x - view.x) / CELL) - this._drag.pointerOffsetCol;
       const row = Math.floor((ptr.y - view.y) / CELL) - this._drag.pointerOffsetRow;
-      valid = canPlace(view.grid, view.cols, view.rows, this._drag.itemKey, col, row, this._drag.instanceId);
-      const cells = getOccupiedCells(this._drag.itemKey, col, row);
+      valid = this._canPlaceInView(view, this._drag.itemKey, col, row, this._drag.instanceId, this._drag.rotation);
+      const cells = getOccupiedCells(this._drag.itemKey, col, row, this._drag.rotation);
       this._highlightCells(view, cells, valid ? PAL.gridGood : PAL.gridBad);
     }
 
-    this._drawItemGhost(this._ghostGfx, this._drag.itemKey, gx, gy, valid || !view);
+    this._drawItemGhost(this._ghostGfx, this._drag.itemKey, gx, gy, valid || !view, this._drag.rotation);
+  }
+
+  _updateItemTooltip(ptr) {
+    let hovered = null;
+    const entries = Object.entries(this._allItems);
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const [instanceId, info] = entries[i];
+      const bounds = this._getItemBounds(info);
+      if (ptr.x >= bounds.x && ptr.x < bounds.x + bounds.width &&
+        ptr.y >= bounds.y && ptr.y < bounds.y + bounds.height) {
+        hovered = { instanceId, info };
+        break;
+      }
+    }
+
+    if (!hovered) {
+      this._hoveredItemId = null;
+      this._hideTooltip();
+    } else if (this._hoveredItemId !== hovered.instanceId) {
+      this._hoveredItemId = hovered.instanceId;
+      this._showTooltip(hovered.info.itemKey, hovered.info.gfx);
+    }
   }
 
   _onGridHover(view, ptr) {
     // handled in _onPointerMove
   }
 
-  _onGridPointerDown(view, ptr) {
-    // If dragging, try to place
-    if (this._drag) {
-      const col = Math.floor((ptr.x - view.x) / CELL) - this._drag.pointerOffsetCol;
-      const row = Math.floor((ptr.y - view.y) / CELL) - this._drag.pointerOffsetRow;
-      this._tryPlace(view, col, row);
-    }
-  }
-
   _onTrayPointerDown(ptr) {
+    if (ptr.button === 2 || ptr.event?.button === 2) return;
     if (this._drag) {
       // Drop back to tray (floating)
       const drag = this._drag;
       this._drag = null;
       this._ghostGfx.clear();
       this._hoverGfx.clear();
-      GameState.floatingItems.push({ instanceId: drag.instanceId, itemKey: drag.itemKey });
+      this._removeInstanceFromLocations(drag.instanceId);
+      GameState.floatingItems.push({ instanceId: drag.instanceId, itemKey: drag.itemKey, rotation: drag.rotation || 0 });
       this._layoutTray();
     }
   }
 
   _onPointerUp(ptr) {
+    if (ptr.button === 2 || ptr.event?.button === 2) return;
     if (!this._drag) return;
 
     // Try to place on whatever grid is under pointer
@@ -801,7 +1094,8 @@ export class InventoryScene extends Phaser.Scene {
       this._drag = null;
       this._ghostGfx.clear();
       this._hoverGfx.clear();
-      GameState.floatingItems.push({ instanceId: drag.instanceId, itemKey: drag.itemKey });
+      this._removeInstanceFromLocations(drag.instanceId);
+      GameState.floatingItems.push({ instanceId: drag.instanceId, itemKey: drag.itemKey, rotation: drag.rotation || 0 });
       this._layoutTray();
       return;
     }
@@ -813,15 +1107,17 @@ export class InventoryScene extends Phaser.Scene {
   _tryPlace(view, col, row) {
     const drag = this._drag;
     if (!drag) return false;
-    if (!canPlace(view.grid, view.cols, view.rows, drag.itemKey, col, row)) return false;
+    if (!this._canPlaceInView(view, drag.itemKey, col, row, drag.instanceId, drag.rotation)) return false;
 
-    placeItem(view.grid, view.cols, drag.itemKey, col, row, drag.instanceId);
-    view.items.push({ instanceId: drag.instanceId, itemKey: drag.itemKey, originX: col, originY: row });
+    this._removeInstanceFromLocations(drag.instanceId);
+    placeItem(view.grid, view.cols, drag.itemKey, col, row, drag.instanceId, drag.rotation);
+    view.items.push({ instanceId: drag.instanceId, itemKey: drag.itemKey, originX: col, originY: row, rotation: drag.rotation || 0 });
 
     this._drag = null;
     this._ghostGfx.clear();
     this._hoverGfx.clear();
-    this._renderItem(drag.instanceId, drag.itemKey, view.id, col, row);
+    this._renderItem(drag.instanceId, drag.itemKey, view.id, col, row, drag.rotation || 0);
+    this._drawRoomShelfItems();
     return true;
   }
 
@@ -834,40 +1130,36 @@ export class InventoryScene extends Phaser.Scene {
 
     if (drag.originGrid) {
       const view = this._getView(drag.originGrid);
-      if (view && canPlace(view.grid, view.cols, view.rows, drag.itemKey, drag.originX, drag.originY)) {
-        placeItem(view.grid, view.cols, drag.itemKey, drag.originX, drag.originY, drag.instanceId);
-        view.items.push({ instanceId: drag.instanceId, itemKey: drag.itemKey, originX: drag.originX, originY: drag.originY });
-        this._renderItem(drag.instanceId, drag.itemKey, view.id, drag.originX, drag.originY);
+      if (view && this._canPlaceInView(view, drag.itemKey, drag.originX, drag.originY, drag.instanceId, drag.rotation)) {
+        this._removeInstanceFromLocations(drag.instanceId);
+        placeItem(view.grid, view.cols, drag.itemKey, drag.originX, drag.originY, drag.instanceId, drag.rotation);
+        view.items.push({ instanceId: drag.instanceId, itemKey: drag.itemKey, originX: drag.originX, originY: drag.originY, rotation: drag.rotation || 0 });
+        this._renderItem(drag.instanceId, drag.itemKey, view.id, drag.originX, drag.originY, drag.rotation || 0);
+        this._drawRoomShelfItems();
         return;
       }
     }
     // Fall back: put in floating tray
-    GameState.floatingItems.push({ instanceId: drag.instanceId, itemKey: drag.itemKey });
+    this._removeInstanceFromLocations(drag.instanceId);
+    GameState.floatingItems.push({ instanceId: drag.instanceId, itemKey: drag.itemKey, rotation: drag.rotation || 0 });
     this._layoutTray();
+  }
+
+  _removeInstanceFromLocations(instanceId) {
+    for (const view of this._gridViews) {
+      removeItem(view.grid, view.cols, instanceId);
+      const index = view.items.findIndex(item => item.instanceId === instanceId);
+      if (index !== -1) view.items.splice(index, 1);
+    }
+    GameState.floatingItems = GameState.floatingItems.filter(item => item.instanceId !== instanceId);
+    GameState.pendingItems = GameState.pendingItems.filter(item => item.instanceId !== instanceId);
   }
 
   _scrollBy(dy) {
     this._scrollY = Phaser.Math.Clamp(this._scrollY + dy, 0, this._maxScrollY);
-    // Move all grid view positions
+    this._contentContainer.y = -this._scrollY;
     for (const view of this._gridViews) {
       view.y = view._baseY - this._scrollY;
-      if (view.zone) {
-        view.zone.y = view.y;
-      }
-    }
-    // Redraw all items
-    this._redrawAllItems();
-  }
-
-  _redrawAllItems() {
-    for (const [instanceId, info] of Object.entries(this._allItems)) {
-      if (info.gridId) {
-        const view = this._getView(info.gridId);
-        if (view) {
-          info.gfx.clear();
-          this._drawItemOnGrid(info.gfx, info.itemKey, view.x + info.originX * CELL, view.y + info.originY * CELL);
-        }
-      }
     }
   }
 
@@ -887,45 +1179,40 @@ export class InventoryScene extends Phaser.Scene {
       .on('pointerout', () => btn.setFillStyle(PAL.btnGo))
       .on('pointerdown', () => this._headOut());
 
-    this.add.text(btnX + btnW / 2, btnY + 18, '▶  HEAD OUT', {
+    addText(this, btnX + btnW / 2, btnY + 18, '▶  HEAD OUT', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '9px',
       color: '#f9e4b7',
     }).setOrigin(0.5).setDepth(151);
 
-    // Bag fullness indicator
-    const used = GameState.bagItems.reduce((acc, i) => acc + ITEM_DEFS[i.itemKey].shape.length, 0);
-    const total = GRID.BAG_COLS * GRID.BAG_ROWS;
-    this._bagStatusTxt = this.add.text(btnX, btnY - 20,
-      `Bag: ${used}/${total} cells used`,
-      {
-        fontFamily: '"Nunito", sans-serif',
-        fontSize: '12px',
-        color: used >= total ? '#ff6060' : '#c9b8e8',
-      }
-    ).setDepth(151);
   }
 
   _headOut() {
+    if (GameState.floatingItems.length > 0 || GameState.pendingItems.length > 0) {
+      this._showHeadOutWarning('Place all items before heading out!');
+      return;
+    }
+
     // Check bag has at least the keys
     const hasKeys = GameState.bagItems.some(i => i.itemKey === 'keys');
     if (!hasKeys) {
-      // Flash warning
-      const W = this.scale.width;
-      const warn = this.add.text(W / 2, this.scale.height - 80,
-        "Don't forget your keys!", {
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: '10px',
-        color: '#ff6060',
-        backgroundColor: '#1a0a2e',
-        padding: { x: 10, y: 6 },
-      }
-      ).setOrigin(0.5).setDepth(200);
-      this.tweens.add({ targets: warn, alpha: 0, delay: 1800, duration: 400, onComplete: () => warn.destroy() });
+      this._showHeadOutWarning("Don't forget your keys!");
       return;
     }
     GameState.phase = 'event';
     this.scene.start('EventScene');
+  }
+
+  _showHeadOutWarning(message) {
+    const warn = addText(this, this.scale.width / 2, this.scale.height - 80, message, {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '9px',
+      color: '#ff6060',
+      backgroundColor: '#1a0a2e',
+      padding: { x: 10, y: 6 },
+      align: 'center',
+    }).setOrigin(0.5).setDepth(200);
+    this.tweens.add({ targets: warn, alpha: 0, delay: 1800, duration: 400, onComplete: () => warn.destroy() });
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -936,6 +1223,9 @@ export class InventoryScene extends Phaser.Scene {
     const def = ITEM_DEFS[itemKey];
     if (!def) return;
     this._tooltipTxt.setText(`${def.name}\n${def.description}`);
+    const tooltipWidth = Math.min(220, Math.max(150, this._tooltipTxt.width + 12));
+    this._tooltipTxt.setWordWrapWidth(tooltipWidth - 12);
+    this._tooltipBg.setSize(tooltipWidth, this._tooltipTxt.height + 8);
     const bounds = gfx.getBounds();
     let tx = bounds.right + 6;
     let ty = bounds.top;
@@ -954,7 +1244,7 @@ export class InventoryScene extends Phaser.Scene {
   _showPendingNotice() {
     const W = this.scale.width;
     const items = GameState.pendingItems.map(i => ITEM_DEFS[i.itemKey]?.name || i.itemKey).join(', ');
-    const notice = this.add.text(W / 2, 66,
+    const notice = addText(this, W / 2, 66,
       `📦  You received: ${items}  — added to your tray!`,
       {
         fontFamily: '"Nunito", sans-serif',

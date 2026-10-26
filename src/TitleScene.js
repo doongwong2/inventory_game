@@ -3,6 +3,7 @@
 // ============================================================
 
 import { GameState } from './GameData.js';
+import { addText } from './uiText.js';
 
 export class TitleScene extends Phaser.Scene {
   constructor() { super('TitleScene'); }
@@ -30,7 +31,7 @@ export class TitleScene extends Phaser.Scene {
     this._drawDormWindow(W * 0.18, H * 0.45);
 
     // Title text
-    this.add.text(W * 0.5, H * 0.22, 'CARRY IT WITH YOU', {
+    addText(this, W * 0.5, H * 0.22, 'CARRY IT WITH YOU', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '22px',
       color: '#f9e4b7',
@@ -40,7 +41,7 @@ export class TitleScene extends Phaser.Scene {
       strokeThickness: 4,
     }).setOrigin(0.5);
 
-    this.add.text(W * 0.5, H * 0.34, 'a cozy university life game', {
+    addText(this, W * 0.5, H * 0.34, 'a cozy university life game', {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '15px',
       color: '#c9b8e8',
@@ -48,7 +49,7 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Day counter preview
-    this.add.text(W * 0.5, H * 0.43, '7 DAYS · SORT YOUR BAG · FIND YOUR PEOPLE', {
+    addText(this, W * 0.5, H * 0.43, '7 DAYS · SORT YOUR BAG · FIND YOUR PEOPLE', {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '11px',
       color: '#8878aa',
@@ -63,7 +64,7 @@ export class TitleScene extends Phaser.Scene {
       .on('pointerout',  () => { btn.setFillStyle(0x6b3fa0); pulse.setColor('#f9e4b7'); })
       .on('pointerdown', () => this._startGame());
 
-    const pulse = this.add.text(W * 0.5, H * 0.58, '▶  START WEEK', {
+    const pulse = addText(this, W * 0.5, H * 0.58, '▶  START WEEK', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '11px',
       color: '#f9e4b7',
@@ -79,7 +80,7 @@ export class TitleScene extends Phaser.Scene {
     });
 
     // How to play hint
-    this.add.text(W * 0.5, H * 0.72,
+    addText(this, W * 0.5, H * 0.72,
       'Each morning, pack your bag.\nWhat you carry shapes your day.',
       {
         fontFamily: '"Nunito", sans-serif',
@@ -90,7 +91,7 @@ export class TitleScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     // Credits
-    this.add.text(W * 0.5, H * 0.93, 'made with Phaser 3  ·  prototype build', {
+    addText(this, W * 0.5, H * 0.93, 'made with Phaser 3  ·  prototype build', {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '10px',
       color: '#4a3d6a',
