@@ -125,6 +125,22 @@
     import { InventoryScene } from './src/InventoryScene.js';
     import { EventScene }     from './src/EventScene.js';
     import { EndScene }       from './src/EndScene.js';
+    import { ITEM_DEFS, loadGameContent } from './src/GameData.js';
+
+    try {
+      const contentResponse = await fetch('./data/game-content.json', { cache: 'no-store' });
+      if (!contentResponse.ok) throw new Error('Could not load data/game-content.json.');
+      loadGameContent(await contentResponse.json());
+
+    class ContentBootScene extends Phaser.Scene {
+      constructor() { super('ContentBootScene'); }
+      preload() {
+        for (const [key, item] of Object.entries(ITEM_DEFS)) {
+          if (item.sprite) this.load.image(`item-sprite-${key}`, item.sprite);
+        }
+      }
+      create() { this.scene.start('TitleScene'); }
+    }
 
     const config = {
       type: Phaser.AUTO,
@@ -132,7 +148,7 @@
       height: 560,
       backgroundColor: '#0d0820',
       parent: 'game-container',
-      scene: [TitleScene, InventoryScene, EventScene, EndScene],
+      scene: [ContentBootScene, TitleScene, InventoryScene, EventScene, EndScene],
       scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -154,6 +170,11 @@
         setTimeout(() => loading?.remove(), 900);
       }, 800);
     });
+    } catch (error) {
+      console.error('Game content could not be loaded:', error);
+      document.querySelector('.loader-title').textContent = 'CONTENT ERROR';
+      document.querySelector('.loader-sub').textContent = `${error.message} · Check data/game-content.json and reload.`;
+    }
   </script>
 </body>
 </html>

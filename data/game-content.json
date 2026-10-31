@@ -1,0 +1,596 @@
+{
+  "schemaVersion": 1,
+  "startingItems": [
+    "pencil",
+    "notebook",
+    "textbook",
+    "bento",
+    "water_bottle",
+    "keys",
+    "phone",
+    "umbrella",
+    "apron",
+    "camera",
+    "sketchbook",
+    "new_item_16",
+    "cookie_jar"
+  ],
+  "items": {
+    "apron": {
+      "name": "Apron",
+      "color": 10518624,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "category": "work",
+      "description": "For the café shift.",
+      "sprite": "assets/items/apron-fe05854ae683.png"
+    },
+    "bento": {
+      "name": "Bento Box",
+      "color": 15769776,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "category": "food",
+      "description": "Neatly packed lunch."
+    },
+    "camera": {
+      "name": "Camera",
+      "color": 6316128,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "category": "club",
+      "description": "Photography club essential."
+    },
+    "cookie_jar": {
+      "name": "Cookie Jar",
+      "color": 13936938,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "category": "food",
+      "description": "Homemade cookies. Sharing = affinity boost."
+    },
+    "energy_drink": {
+      "name": "Energy Drink",
+      "color": 8454016,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "category": "food",
+      "description": "A last resort."
+    },
+    "keys": {
+      "name": "Keys",
+      "color": 13938487,
+      "shape": [
+        [
+          0,
+          0
+        ]
+      ],
+      "category": "misc",
+      "description": "Do not forget these."
+    },
+    "new_item_16": {
+      "name": "New item",
+      "color": 7373137,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          6,
+          1
+        ]
+      ],
+      "category": "misc",
+      "description": ""
+    },
+    "notebook": {
+      "name": "Notebook",
+      "color": 8315107,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "category": "stationery",
+      "description": "Lined pages, slightly crumpled."
+    },
+    "pencil": {
+      "name": "Pencil",
+      "color": 16111712,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "category": "stationery",
+      "description": "A trusty HB pencil."
+    },
+    "phone": {
+      "name": "Phone",
+      "color": 3158064,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "category": "misc",
+      "description": "Notifications off (mostly)."
+    },
+    "ruler": {
+      "name": "Ruler",
+      "color": 12640352,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ]
+      ],
+      "category": "stationery",
+      "description": "30cm, transparent."
+    },
+    "sketchbook": {
+      "name": "Sketchbook",
+      "color": 16769200,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "category": "club",
+      "description": "Art club sketchbook."
+    },
+    "snack_bag": {
+      "name": "Snack Bag",
+      "color": 16766336,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "category": "food",
+      "description": "Chips. Classic."
+    },
+    "textbook": {
+      "name": "Textbook",
+      "color": 14777172,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "category": "academic",
+      "description": "Heavy. Very heavy."
+    },
+    "umbrella": {
+      "name": "Umbrella",
+      "color": 9474256,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          0,
+          4
+        ]
+      ],
+      "category": "misc",
+      "description": "Just in case."
+    },
+    "water_bottle": {
+      "name": "Water Bottle",
+      "color": 9494783,
+      "shape": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          2
+        ]
+      ],
+      "category": "misc",
+      "description": "Stay hydrated."
+    }
+  },
+  "days": [
+    {
+      "day": 1,
+      "activity": "lecture",
+      "npc": "mai",
+      "intro": [
+        "Day 1 — Monday",
+        "You drag yourself to your 8am lecture.",
+        "Mai slides into the seat next to you."
+      ],
+      "triggers": [
+        {
+          "wantItems": [
+            "pencil",
+            "notebook"
+          ],
+          "dialogue": "\"Oh! You have a spare pencil? Can I borrow it?\" Mai looks relieved. \"I always forget mine...\"",
+          "affinityGain": 12,
+          "receiveItem": ""
+        },
+        {
+          "wantItems": [],
+          "dialogue": "Mai glances at your bag. \"All set for the lecture?\" She smiles politely.",
+          "affinityGain": 2,
+          "receiveItem": ""
+        }
+      ],
+      "outro": [
+        "The lecture ends. You head home."
+      ]
+    },
+    {
+      "day": 2,
+      "activity": "work",
+      "npc": "kenji",
+      "intro": [
+        "Day 2 — Tuesday",
+        "Afternoon shift at the campus café.",
+        "Kenji is already tying his apron."
+      ],
+      "triggers": [
+        {
+          "wantItems": [
+            "apron"
+          ],
+          "dialogue": "\"Nice, you brought your own apron!\" Kenji grins. \"Much better than borrowing the manager's old one.\"",
+          "affinityGain": 12,
+          "receiveItem": "energy_drink"
+        },
+        {
+          "wantItems": [],
+          "dialogue": "Kenji raises an eyebrow. \"Forgot your apron again?\" He hands you a dusty spare from the back.",
+          "affinityGain": 1,
+          "receiveItem": "apron"
+        }
+      ],
+      "outro": [
+        "Shift done. Your feet ache. You head home."
+      ]
+    },
+    {
+      "day": 3,
+      "activity": "club",
+      "npc": "rin",
+      "intro": [
+        "Day 3 — Wednesday",
+        "Photography club meets in the rooftop garden.",
+        "Rin is already adjusting her lens."
+      ],
+      "triggers": [
+        {
+          "wantItems": [
+            "camera"
+          ],
+          "dialogue": "\"Oh, you brought your camera today!\" Rin beams. \"Come, I'll show you the golden-hour trick.\"",
+          "affinityGain": 15,
+          "receiveItem": "sketchbook"
+        },
+        {
+          "wantItems": [],
+          "dialogue": "Rin glances at your empty hands. \"Forgot your camera? You can share mine... just be careful.\"",
+          "affinityGain": 2,
+          "receiveItem": ""
+        }
+      ],
+      "outro": [
+        "Club wraps up. The sky turns orange. Time to go home."
+      ]
+    },
+    {
+      "day": 4,
+      "activity": "study",
+      "npc": "hiro",
+      "intro": [
+        "Day 4 — Thursday",
+        "Library study session with Hiro.",
+        "He's already spread out three textbooks."
+      ],
+      "triggers": [
+        {
+          "wantItems": [
+            "textbook",
+            "notebook"
+          ],
+          "dialogue": "\"Perfect timing! I needed someone to quiz!\" Hiro slides a worksheet across the table. \"Let's go.\"",
+          "affinityGain": 14,
+          "receiveItem": "ruler"
+        },
+        {
+          "wantItems": [],
+          "dialogue": "Hiro looks at your empty bag. \"Did you... forget everything?\" He sighs, but shares his notes anyway.",
+          "affinityGain": 2,
+          "receiveItem": ""
+        }
+      ],
+      "outro": [
+        "You study until the library closes. Good session."
+      ]
+    },
+    {
+      "day": 5,
+      "activity": "random",
+      "npc": "sora",
+      "intro": [
+        "Day 5 — Friday",
+        "You run into Sora in the dormitory hallway.",
+        "She's carrying way too many grocery bags."
+      ],
+      "triggers": [
+        {
+          "wantItems": [
+            "bento"
+          ],
+          "dialogue": "\"Is that a bento? Oh wow, it smells amazing.\" Sora peeks into your bag. \"Did you make that yourself?\"",
+          "affinityGain": 13,
+          "receiveItem": "snack_bag"
+        },
+        {
+          "wantItems": [],
+          "dialogue": "Sora smiles shyly. \"Hi! Sorry — do you live on this floor too?\" She shifts her grocery bags awkwardly.",
+          "affinityGain": 3,
+          "receiveItem": ""
+        }
+      ],
+      "outro": [
+        "Sora waves and disappears into her room. Quiet Friday evening."
+      ]
+    },
+    {
+      "day": 6,
+      "activity": "lecture",
+      "npc": "mai",
+      "intro": [
+        "Day 6 — Saturday",
+        "A make-up lecture. On a Saturday. Really.",
+        "Mai looks as tired as you feel."
+      ],
+      "triggers": [
+        {
+          "wantItems": [
+            "energy_drink",
+            "notebook"
+          ],
+          "consumeItems": [
+            "energy_drink"
+          ],
+          "dialogue": "\"Oh my gosh, you brought an energy drink?\" Mai's eyes light up. \"Can I have a sip? Please?\"",
+          "affinityGain": 13,
+          "receiveItem": "pencil"
+        },
+        {
+          "wantItems": [],
+          "dialogue": "Mai yawns. \"Saturday lecture... who does this?\" She glances at you. \"At least we suffer together.\"",
+          "affinityGain": 3,
+          "receiveItem": ""
+        }
+      ],
+      "outro": [
+        "Finally done. You both agree never to let this happen again."
+      ]
+    },
+    {
+      "day": 7,
+      "activity": "random",
+      "npc": "sora",
+      "intro": [
+        "Day 7 — Sunday",
+        "Last day of the week. Sora knocks on your door.",
+        "\"Hey — a few of us are having a little get-together. Want to come?\""
+      ],
+      "triggers": [
+        {
+          "wantItems": [
+            "snack_bag",
+            "cookie_jar"
+          ],
+          "dialogue": "\"You brought snacks! Yes!\" Sora claps her hands. Everyone cheers. You feel like a hero.",
+          "affinityGain": 20,
+          "receiveItem": "new_item_16"
+        },
+        {
+          "wantItems": [],
+          "dialogue": "You show up empty-handed. It's still a nice time, but you feel a little guilty.",
+          "affinityGain": 5,
+          "receiveItem": ""
+        }
+      ],
+      "outro": [
+        "The week is over.",
+        "You lie on your bed and stare at the ceiling.",
+        "Next week will be different. (It won't.)",
+        "— END OF DEMO —"
+      ]
+    }
+  ]
+}

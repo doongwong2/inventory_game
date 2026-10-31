@@ -5,6 +5,7 @@
 import {
   GRID, DAYS, ITEM_DEFS, GameState, addAffinity, bagHasItem, newInstanceId
 } from './GameData.js';
+import { removeItem } from './GridEngine.js';
 import { addText } from './uiText.js';
 
 const PAL = {
@@ -442,6 +443,16 @@ export class EventScene extends Phaser.Scene {
     // Apply affinity
     const unlock = addAffinity(npcKey, bestTrigger.affinityGain);
 
+    // Consume one matching instance from the player's bag for each selected item.
+    const consumedNames = [];
+    for (const itemKey of bestTrigger.consumeItems || []) {
+      const itemIndex = GameState.bagItems.findIndex(item => item.itemKey === itemKey);
+      if (itemIndex < 0) continue;
+      const [item] = GameState.bagItems.splice(itemIndex, 1);
+      removeItem(GameState.bagGrid, GRID.BAG_COLS, item.instanceId);
+      consumedNames.push(ITEM_DEFS[itemKey]?.name || itemKey);
+    }
+
     // Receive item if applicable
     if (bestTrigger.receiveItem) {
       const bagFull = GameState.bagItems.reduce((acc, i) => acc + ITEM_DEFS[i.itemKey].shape.length, 0)
@@ -471,8 +482,10 @@ export class EventScene extends Phaser.Scene {
     }
 
     // Affinity gain notice
-    const gainTxt = `♥  +${bestTrigger.affinityGain}  Affinity with ${this._npc?.name}` +
-      (unlock ? `\n🔓  ${unlock.unlock}` : '');
+    const affinitySign = bestTrigger.affinityGain >= 0 ? '+' : '';
+    const consumedNotice = consumedNames.length ? `\nConsumed: ${consumedNames.join(', ')}` : '';
+    const gainTxt = `♥  ${affinitySign}${bestTrigger.affinityGain}  Affinity with ${this._npc?.name}` +
+      (unlock ? `\n🔓  ${unlock.unlock}` : '') + consumedNotice;
     this._affinityTxt.setText(gainTxt);
     this._affinityPopup.setVisible(true);
     this.tweens.add({
