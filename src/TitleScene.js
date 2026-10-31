@@ -2,7 +2,7 @@
 // TitleScene.js — Opening title screen
 // ============================================================
 
-import { GameState } from './GameData.js';
+import { GameState, STARTING_ITEMS } from './GameData.js';
 import { addText } from './uiText.js';
 
 export class TitleScene extends Phaser.Scene {
@@ -159,16 +159,10 @@ export class TitleScene extends Phaser.Scene {
     GameState.currentDay = 0;
     // Seed player with starting items on their shelf
     // (these get placed into floating items, player must pack the bag)
-    GameState.floatingItems = [
-      { instanceId: 'fi_1', itemKey: 'pencil' },
-      { instanceId: 'fi_2', itemKey: 'notebook' },
-      { instanceId: 'fi_3', itemKey: 'textbook' },
-      { instanceId: 'fi_4', itemKey: 'bento' },
-      { instanceId: 'fi_5', itemKey: 'water_bottle' },
-      { instanceId: 'fi_6', itemKey: 'keys' },
-      { instanceId: 'fi_7', itemKey: 'phone' },
-      { instanceId: 'fi_8', itemKey: 'umbrella' },
-    ];
+    GameState.floatingItems = STARTING_ITEMS.map((itemKey, index) => ({
+      instanceId: `fi_${index + 1}`,
+      itemKey,
+    }));
     this.scene.start('InventoryScene');
   }
 }

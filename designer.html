@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#100d1b" />
+  <title>Studio Index · Carry It With You</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/designer.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="/"><span class="brand-mark">ci</span><span>STUDIO<br /><b>INDEX</b></span></a>
+      <div class="side-label">WORKSPACE</div>
+      <nav class="side-nav" aria-label="Designer sections">
+        <button class="side-link active" data-tab="items"><span class="nav-icon">▦</span>Items<span class="nav-count" id="item-nav-count">—</span></button>
+        <button class="side-link" data-tab="conversations"><span class="nav-icon">◌</span>Events<span class="nav-count" id="conversation-nav-count">—</span></button>
+      </nav>
+      <div class="sidebar-bottom"><span class="status-dot"></span><span>LOCAL PROJECT DATA</span><small>data/game-content.json</small></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar"><div class="breadcrumb">CARRY IT WITH YOU <span>/</span> DESIGNER VIEW</div><div class="topbar-right"><span class="read-only" id="save-state"><i></i> LOADING DATA</span><button class="button button-quiet" id="import-button" disabled>Import JSON</button><button class="button button-quiet" id="export-button" disabled>Export JSON</button><button class="button button-quiet" id="bundle-button" disabled>Export game bundle</button><button class="button button-primary" id="save-button" disabled>Save changes</button></div></header>
+      <div class="notice" id="notice" role="status" aria-live="polite"></div>
+      <section class="page-heading"><div><div class="eyebrow" id="page-eyebrow">CONTENT EDITOR <span>01 / 02</span></div><h1 id="page-title">Items</h1><p id="page-description">Edit item definitions, footprints, and when each item enters the game.</p></div></section>
+
+      <section class="tab-content active" id="items-panel">
+        <div class="editor-toolbar"><div class="toolbar-title"><span class="tiny-square"></span><span id="items-count">ITEMS</span></div><label class="search"><span>⌕</span><input id="item-search" type="search" placeholder="Filter items…" aria-label="Filter items" /></label><button class="button button-add" id="add-item">＋ Add item</button></div>
+        <div class="editor-layout"><div class="record-list" id="item-list"></div><div class="editor-card" id="item-editor"><div class="empty">Choose an item to edit.</div></div></div>
+      </section>
+
+      <section class="tab-content" id="conversations-panel" hidden>
+        <div class="editor-toolbar"><div class="toolbar-title"><span class="tiny-square violet"></span><span id="events-count">EVENTS</span></div><label class="search"><span>⌕</span><input id="event-search" type="search" placeholder="Filter events…" aria-label="Filter events" /></label><button class="button button-add" id="add-event">＋ Add event</button></div>
+        <div class="editor-layout"><div class="record-list" id="event-list"></div><div class="editor-card" id="event-editor"><div class="empty">Choose an event to edit.</div></div></div>
+      </section>
+      <footer class="footer"><span>CARRY IT WITH YOU <b>·</b> LOCAL CONTENT EDITOR</span><span>Changes are saved to the game data file</span></footer>
+    </main>
+  </div>
+  <input id="import-file" type="file" accept="application/json,.json" hidden />
+  <input id="sprite-file" type="file" accept="image/png,.png" hidden />
+  <script type="module" src="/designer.js"></script>
+</body>
+</html>

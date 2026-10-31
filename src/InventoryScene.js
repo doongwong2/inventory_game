@@ -17,7 +17,7 @@ const PAL = {
   panel: 0x251640,
   panelBorder: 0x6b3fa0,
   gridBg: 0x12082a,
-  gridLine: 0x3d2b5e,
+  gridLine: 0x624c80,
   gridHover: 0x5a3a8a,
   gridBad: 0x8a2020,
   gridGood: 0x2a6a3a,
@@ -53,6 +53,10 @@ export class InventoryScene extends Phaser.Scene {
   _maxScrollY = 0;
   _scrollMask = null;
   _contentContainer = null;
+  _gridLayer = null;
+  _itemLayer = null;
+  _gridOverlayLayer = null;
+  _itemLabelLayer = null;
 
   create() {
     const W = this.scale.width;
@@ -448,10 +452,18 @@ export class InventoryScene extends Phaser.Scene {
     pg.fillRect(RIGHT_X - 10, 55, panelW + 10, H - 55);
 
     // Scrollable container
-    // Keep the full right panel under one scroll transform so shelf frames,
-    // grid lines, hit zones, labels, and placed items always move together.
+    // Keep the right panel under one scroll transform and mask. Fixed child
+    // container order guarantees sprites cannot cover grid lines or names.
     this._contentContainer = this.add.container(0, 0);
     this._contentContainer.setDepth(10);
+    this._gridLayer = this.add.container(0, 0);
+    this._itemLayer = this.add.container(0, 0);
+    this._gridOverlayLayer = this.add.container(0, 0);
+    this._itemLabelLayer = this.add.container(0, 0);
+    this._contentContainer.add(this._gridLayer);
+    this._contentContainer.add(this._itemLayer);
+    this._contentContainer.add(this._gridOverlayLayer);
+    this._contentContainer.add(this._itemLabelLayer);
 
     // Mask for scroll region
     const maskShape = this.make.graphics();
@@ -482,7 +494,7 @@ export class InventoryScene extends Phaser.Scene {
     divLine.moveTo(RIGHT_X + 5, SCROLL_Y + yOffset);
     divLine.lineTo(this.scale.width - 5, SCROLL_Y + yOffset);
     divLine.strokePath();
-    this._contentContainer.add(divLine);
+    this._gridLayer.add(divLine);
 
     yOffset += 10;
 
@@ -536,14 +548,14 @@ export class InventoryScene extends Phaser.Scene {
     const lbg = this.add.rectangle(
       RIGHT_X + xOff + gw / 2, SCROLL_Y + yOff + 14, gw + 12, 22, PAL.labelBg
     );
-    this._contentContainer.add(lbg);
+    this._gridLayer.add(lbg);
 
     const labelText = addText(this, RIGHT_X + xOff + 4, SCROLL_Y + yOff + 5, label, {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '7px',
       color: '#f9e4b7',
     });
-    this._contentContainer.add(labelText);
+    this._gridLayer.add(labelText);
 
     yOff += 24;
 
@@ -553,11 +565,13 @@ export class InventoryScene extends Phaser.Scene {
     gbg.fillRect(RIGHT_X + xOff - 1, SCROLL_Y + yOff - 1, gw + 2, gh + 2);
     gbg.lineStyle(2, color, 0.7);
     gbg.strokeRect(RIGHT_X + xOff - 2, SCROLL_Y + yOff - 2, gw + 4, gh + 4);
-    this._contentContainer.add(gbg);
+    this._gridLayer.add(gbg);
 
-    // Grid lines
+    // Draw normal grid lines in a dedicated layer above every item sprite.
     const gg = this.add.graphics();
-    gg.lineStyle(1, PAL.gridLine, 0.7);
+    // Use a solid, high-contrast stroke so it remains legible over sprites and
+    // after the game canvas is scaled to fit the browser window.
+    gg.lineStyle(2, PAL.gridLine, 1);
     for (let c = 0; c <= cols; c++) {
       gg.beginPath();
       gg.moveTo(RIGHT_X + xOff + c * CELL, SCROLL_Y + yOff);
@@ -570,11 +584,11 @@ export class InventoryScene extends Phaser.Scene {
       gg.lineTo(RIGHT_X + xOff + gw, SCROLL_Y + yOff + r * CELL);
       gg.strokePath();
     }
-    this._contentContainer.add(gg);
+    this._gridOverlayLayer.add(gg);
 
     // The big shelf has physical dividers after each pair of rows.
     if (id === 'big_shelf') {
-      const dividers = this.add.graphics().setDepth(19);
+      const dividers = this.add.graphics();
       dividers.lineStyle(4, PAL.shelfWood, 1);
       for (let row = 2; row < rows; row += 2) {
         const dividerY = SCROLL_Y + yOff + row * CELL;
@@ -583,14 +597,14 @@ export class InventoryScene extends Phaser.Scene {
         dividers.lineTo(RIGHT_X + xOff + gw, dividerY);
         dividers.strokePath();
       }
-      this._contentContainer.add(dividers);
+      this._gridOverlayLayer.add(dividers);
     }
 
     // Invisible interactive zone for the grid
     const zone = this.add.zone(
       RIGHT_X + xOff, SCROLL_Y + yOff, gw, gh
     ).setOrigin(0).setInteractive();
-    this._contentContainer.add(zone);
+    this._gridLayer.add(zone);
 
     // Register grid view
     const view = {
@@ -600,7 +614,7 @@ export class InventoryScene extends Phaser.Scene {
       _baseY: SCROLL_Y + yOff,
       grid: isShelf ? GameState.shelves[id].grid : GameState.bagGrid,
       items: isShelf ? GameState.shelves[id].items : GameState.bagItems,
-      gfx: this._contentContainer.add(this.add.graphics().setDepth(20)),
+      gfx: this._gridLayer.add(this.add.graphics()),
       zone,
     };
     this._gridViews.push(view);
@@ -740,50 +754,87 @@ export class InventoryScene extends Phaser.Scene {
     }
     GameState.pendingItems = [];
     const gap = 4;
-    const entries = GameState.floatingItems.map(item => {
-      const def = ITEM_DEFS[item.itemKey];
-      return {
-        item,
-        cols: Math.max(...getItemShape(item.itemKey, item.rotation || 0).map(([col]) => col + 1)),
-        rows: Math.max(...getItemShape(item.itemKey, item.rotation || 0).map(([, row]) => row + 1)),
-        labelWidth: Math.max(28, def.name.length * 4.2),
-      };
-    });
-    const cellScale = Math.min(
-      0.3,
-      this._trayH / (Math.max(1, ...entries.map(entry => entry.rows)) * CELL),
-      Math.max(0.05, (this._trayW - 8 - entries.reduce((sum, entry) => sum + entry.labelWidth, 0) - gap * Math.max(0, entries.length - 1)) /
-        Math.max(CELL, entries.reduce((sum, entry) => sum + entry.cols * CELL, 0)))
-    );
-    let x = this._trayX + 4;
-    for (const entry of entries) {
+    const rowGap = 3;
+    // A dragged item stays in game state as a floating item until placement
+    // succeeds. Keep it out of the tray drawing while its drag ghost is active.
+    const entries = GameState.floatingItems
+      .filter(item => item.instanceId !== this._drag?.instanceId)
+      .map(item => {
+        const def = ITEM_DEFS[item.itemKey];
+        if (!def) return null;
+        const shape = getItemShape(item.itemKey, item.rotation || 0);
+        return {
+          item,
+          cols: Math.max(...shape.map(([col]) => col + 1)),
+          rows: Math.max(...shape.map(([, row]) => row + 1)),
+          labelWidth: Math.min(Math.max(28, def.name.length * 4.2), this._trayW * 0.46),
+        };
+      }).filter(Boolean);
+
+    // Wrap tray items onto additional rows instead of shrinking them past
+    // readability or letting items run outside the tray when the designer
+    // adds more starting items.
+    const layoutRows = cellScale => {
+      const rows = [];
+      for (const entry of entries) {
+        const width = entry.cols * CELL * cellScale + 3 + entry.labelWidth;
+        let row = rows[rows.length - 1];
+        if (!row || (row.items.length && row.width + gap + width > this._trayW - 8)) {
+          row = { items: [], width: 0, height: 0 };
+          rows.push(row);
+        }
+        if (row.items.length) row.width += gap;
+        row.items.push({ entry, width });
+        row.width += width;
+        row.height = Math.max(row.height, entry.rows * CELL * cellScale);
+      }
+      return rows;
+    };
+    let cellScale = 0.3;
+    let rows = layoutRows(cellScale);
+    while (cellScale > 0.05 && rows.reduce((height, row) => height + row.height, 0) + rowGap * Math.max(0, rows.length - 1) > this._trayH - 8) {
+      cellScale = Math.max(0.05, cellScale - 0.01);
+      rows = layoutRows(cellScale);
+    }
+
+    const totalHeight = rows.reduce((height, row) => height + row.height, 0) + rowGap * Math.max(0, rows.length - 1);
+    let y = this._trayY + Math.max(4, (this._trayH - totalHeight) / 2);
+    for (const row of rows) {
+      let x = this._trayX + 4;
+      for (const { entry } of row.items) {
       const fi = entry.item;
       const existing = this._allItems[fi.instanceId];
       existing?.gfx?.destroy();
+      existing?.sprite?.destroy();
       existing?.label?.destroy();
       delete this._allItems[fi.instanceId];
       const width = entry.cols * CELL * cellScale;
       const height = entry.rows * CELL * cellScale;
-      const y = this._trayY + (this._trayH - height) / 2;
-      this._renderFloatingItem(fi.instanceId, fi.itemKey, x, y, cellScale, width, height, entry.labelWidth, fi.rotation || 0);
+      const itemY = y + (row.height - height) / 2;
+      this._renderFloatingItem(fi.instanceId, fi.itemKey, x, itemY, cellScale, width, height, entry.labelWidth, fi.rotation || 0);
       x += width + 3 + entry.labelWidth + gap;
+      }
+      y += row.height + rowGap;
     }
   }
 
   _renderItem(instanceId, itemKey, gridId, originX, originY, rotation = 0) {
     const view = this._getView(gridId);
     if (!view) return;
-    const gfx = this.add.graphics().setDepth(25);
-    this._contentContainer.add(gfx);
+    const gfx = this.add.graphics();
+    this._itemLayer.add(gfx);
     const bounds = this._getItemLocalBounds({ itemKey, gridId, originX, originY, rotation });
     this._drawItemOnGrid(gfx, itemKey, bounds.x, bounds.y, 1, rotation);
-    const label = this._addItemNameLabel(itemKey, bounds, this._contentContainer);
-    this._allItems[instanceId] = { itemKey, gridId, originX, originY, rotation, gfx, label };
+    const sprite = this._createItemSprite(itemKey, bounds.x, bounds.y, 1, rotation);
+    if (sprite) this._itemLayer.add(sprite);
+    const label = this._addItemNameLabel(itemKey, bounds, this._itemLabelLayer);
+    this._allItems[instanceId] = { itemKey, gridId, originX, originY, rotation, gfx, sprite, label };
   }
 
   _renderFloatingItem(instanceId, itemKey, px, py, cellScale, width, height, labelWidth, rotation = 0) {
     const gfx = this.add.graphics().setDepth(25);
     this._drawItemOnGrid(gfx, itemKey, px, py, cellScale, rotation);
+    const sprite = this._createItemSprite(itemKey, px, py, cellScale, rotation);
     const label = addText(this, px + width + 3, py + height / 2, ITEM_DEFS[itemKey].name, {
       fontFamily: '"Nunito", sans-serif',
       fontSize: '8px',
@@ -794,9 +845,57 @@ export class InventoryScene extends Phaser.Scene {
       wordWrap: { width: labelWidth },
     }).setOrigin(0, 0.5).setDepth(26);
     this._allItems[instanceId] = {
-      itemKey, gridId: null, pileX: px, pileY: py, trayScale: cellScale, rotation,
+      itemKey, gridId: null, pileX: px, pileY: py, trayScale: cellScale, rotation, sprite,
       pileWidth: width, pileHeight: height, gfx, label,
     };
+  }
+
+  _createItemSprite(itemKey, baseX, baseY, scale = 1, rotation = 0) {
+    const definition = ITEM_DEFS[itemKey];
+    const sourceKey = `item-sprite-${itemKey}`;
+    if (!definition?.sprite || !this.textures.exists(sourceKey)) return null;
+
+    const turns = ((rotation % 4) + 4) % 4;
+    const textureKey = `item-footprint-${encodeURIComponent(itemKey)}-${turns}`;
+    if (!this.textures.exists(textureKey)) {
+      const source = this.textures.get(sourceKey).getSourceImage();
+      const originalShape = getItemShape(itemKey, 0);
+      const originalWidth = Math.max(...originalShape.map(([col]) => col + 1)) * CELL;
+      const originalHeight = Math.max(...originalShape.map(([, row]) => row + 1)) * CELL;
+      let canvas = document.createElement('canvas');
+      canvas.width = originalWidth;
+      canvas.height = originalHeight;
+      let context = canvas.getContext('2d');
+      context.save();
+      context.beginPath();
+      for (const [col, row] of originalShape) context.rect(col * CELL, row * CELL, CELL, CELL);
+      context.clip();
+      const fit = Math.min(originalWidth / source.width, originalHeight / source.height);
+      const drawWidth = source.width * fit;
+      const drawHeight = source.height * fit;
+      context.imageSmoothingEnabled = false;
+      context.drawImage(source, (originalWidth - drawWidth) / 2, (originalHeight - drawHeight) / 2, drawWidth, drawHeight);
+      context.restore();
+
+      for (let turn = 0; turn < turns; turn++) {
+        const rotated = document.createElement('canvas');
+        rotated.width = canvas.height;
+        rotated.height = canvas.width;
+        const rotatedContext = rotated.getContext('2d');
+        rotatedContext.translate(rotated.width, 0);
+        rotatedContext.rotate(Math.PI / 2);
+        rotatedContext.drawImage(canvas, 0, 0);
+        canvas = rotated;
+      }
+      this.textures.addCanvas(textureKey, canvas).refresh();
+    }
+
+    const shape = getItemShape(itemKey, rotation);
+    const width = Math.max(...shape.map(([col]) => col + 1)) * CELL * scale;
+    const height = Math.max(...shape.map(([, row]) => row + 1)) * CELL * scale;
+    return this.add.image(baseX + width / 2, baseY + height / 2, textureKey)
+      .setDisplaySize(width, height)
+      .setDepth(26);
   }
 
   _getItemBounds(info) {
@@ -824,10 +923,11 @@ export class InventoryScene extends Phaser.Scene {
       fontSize: '9px',
       color: '#ffffff',
       align: 'center',
-      backgroundColor: '#1a0a2e',
       padding: { x: 2, y: 1 },
+      stroke: '#1a0a2e',
+      strokeThickness: 3,
       wordWrap: { width: Math.max(36, bounds.width - 4) },
-    }).setOrigin(0.5).setDepth(26);
+    }).setOrigin(0.5);
     if (container) container.add(label);
     return label;
   }
@@ -915,6 +1015,7 @@ export class InventoryScene extends Phaser.Scene {
     }
     // Destroy old gfx
     this._allItems[instanceId]?.gfx?.destroy();
+    this._allItems[instanceId]?.sprite?.destroy();
     this._allItems[instanceId]?.label?.destroy();
     delete this._allItems[instanceId];
     this._drawRoomShelfItems();
@@ -933,14 +1034,18 @@ export class InventoryScene extends Phaser.Scene {
       pointerOffsetCol: Math.max(0, pointerOffsetCol),
       pointerOffsetRow: Math.max(0, pointerOffsetRow),
     };
+    // Preserve a recoverable copy in state throughout the drag. If pointer-up
+    // is missed or this scene shuts down, the next inventory screen can put
+    // the item back in the tray instead of losing it.
+    if (!GameState.floatingItems.some(item => item.instanceId === instanceId)) {
+      GameState.floatingItems.push({ instanceId, itemKey, rotation });
+    }
   }
 
   _pickUpFloating(instanceId, itemKey, ptr, rotation = 0) {
     const info = this._allItems[instanceId];
-    // Remove from floatingItems list
-    const idx = GameState.floatingItems.findIndex(i => i.instanceId === instanceId);
-    if (idx !== -1) GameState.floatingItems.splice(idx, 1);
     this._allItems[instanceId]?.gfx?.destroy();
+    this._allItems[instanceId]?.sprite?.destroy();
     this._allItems[instanceId]?.label?.destroy();
     delete this._allItems[instanceId];
 
@@ -953,7 +1058,8 @@ export class InventoryScene extends Phaser.Scene {
       pointerOffsetCol: info ? Math.floor((ptr.x - info.pileX) / (CELL * cellScale)) : 0,
       pointerOffsetRow: info ? Math.floor((ptr.y - info.pileY) / (CELL * cellScale)) : 0,
     };
-    // Close the gap immediately and recreate hit targets at the new positions.
+    // Keep the item in floatingItems as a recovery copy; _layoutTray skips
+    // the active drag while closing the gap and rebuilding hit targets.
     this._layoutTray();
   }
 
@@ -1188,6 +1294,10 @@ export class InventoryScene extends Phaser.Scene {
   }
 
   _headOut() {
+    if (this._drag) {
+      this._showHeadOutWarning('Finish placing or return the item first!');
+      return;
+    }
     if (GameState.floatingItems.length > 0 || GameState.pendingItems.length > 0) {
       this._showHeadOutWarning('Place all items before heading out!');
       return;
